@@ -25,56 +25,43 @@ O **Sentinela** automatiza o que antes era feito manualmente: entrar em cada con
 
 ## Arquitetura
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Operador (Admin)                          │
-└───────────────────────────────┬─────────────────────────────────┘
-                                │ HTTPS
-                                ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    Sentinela (FastAPI + Jinja2)                   │
-│                                                                   │
-│  ┌─────────────┐  ┌──────────────┐  ┌────────────────────────┐  │
-│  │ Admin Panel │  │FinOps Router │  │  Security Router       │  │
-│  │  /admin     │  │  /finops     │  │  /security             │  │
-│  └──────┬──────┘  └──────┬───────┘  └───────────┬────────────┘  │
-│         │                │                       │               │
-│         └────────────────┼───────────────────────┘               │
-│                          │                                        │
-│  ┌───────────────────────▼──────────────────────────────────┐   │
-│  │                   Analysis Engine                         │   │
-│  │                                                           │   │
-│  │  ┌─────────────────┐      ┌──────────────────────────┐  │   │
-│  │  │  aws_analyzer   │      │    claude_analyzer        │  │   │
-│  │  │  (boto3)        │─────▶│    (Anthropic API)        │  │   │
-│  │  │                 │      │                           │  │   │
-│  │  │ • Cost Explorer │      │ • FinOps Analysis         │  │   │
-│  │  │ • EC2/RDS/EKS   │      │ • Security Analysis       │  │   │
-│  │  │ • IAM/S3/SG     │      │ • Combined Analysis       │  │   │
-│  │  │ • GuardDuty     │      │ • Quick Wins & Projects   │  │   │
-│  │  │ • CloudTrail    │      │                           │  │   │
-│  │  └─────────────────┘      └──────────────────────────┘  │   │
-│  └───────────────────────────────────────────────────────────┘   │
-│                          │                                        │
-│  ┌───────────────────────▼────────────────┐                      │
-│  │          SQLite / PostgreSQL            │                      │
-│  │    (Clients + AnalysisReports)          │                      │
-│  └────────────────────────────────────────┘                      │
-│                                                                   │
-│  ┌─────────────────────────────────────────┐                     │
-│  │         Portal do Cliente               │                     │
-│  │         /portal/{token}                 │                     │
-│  └─────────────────────────────────────────┘                     │
-└─────────────────────────────────────────────────────────────────┘
-                                │
-                    STS AssumeRole (per client)
-                                │
-        ┌───────────────────────┼───────────────────────┐
-        ▼                       ▼                       ▼
-┌──────────────┐       ┌──────────────┐       ┌──────────────┐
-│  Conta AWS   │       │  Conta AWS   │       │  Conta AWS   │
-│  Cliente A   │       │  Cliente B   │       │  Cliente C   │
-└──────────────┘       └──────────────┘       └──────────────┘
+```mermaid
+flowchart TD
+    Admin("👤 Operador / Admin"):::navy
+
+    subgraph Platform["  Sentinela Platform  "]
+        API("⚡ FastAPI + Jinja2"):::navy
+        subgraph Engine["  Analysis Engine  "]
+            AWS("☁️ AWS Analyzer\nboto3"):::orange
+            AI("🤖 Claude AI\nAnthropic API"):::pink
+        end
+        DB[("🗄️ Database\nSQLite / PostgreSQL")]:::blue
+        subgraph Views["  Dashboards  "]
+            V1("Admin Panel"):::chip
+            V2("FinOps Dashboard"):::chip
+            V3("Security Dashboard"):::chip
+            V4("Client Portal"):::chip
+        end
+    end
+
+    CA("💼 Cliente A\nAWS Account"):::client
+    CB("💼 Cliente B\nAWS Account"):::client
+    CC("💼 Cliente C\nAWS Account"):::client
+
+    Admin -->|HTTPS| API
+    API --> AWS
+    API --> AI
+    API --> DB
+    AWS -.->|STS AssumeRole| CA
+    AWS -.->|STS AssumeRole| CB
+    AWS -.->|STS AssumeRole| CC
+
+    classDef navy  fill:#0B1956,stroke:none,color:#fff
+    classDef orange fill:#FF9900,stroke:none,color:#fff
+    classDef pink  fill:#FF679A,stroke:none,color:#fff
+    classDef blue  fill:#3B5EDB,stroke:none,color:#fff
+    classDef chip  fill:#EEF2F9,stroke:#0B1956,color:#0B1956
+    classDef client fill:#fff,stroke:#0B1956,color:#0B1956
 ```
 
 ### Fluxo de Análise
