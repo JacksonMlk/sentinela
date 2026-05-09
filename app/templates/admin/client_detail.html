@@ -1,0 +1,681 @@
+{% extends "base.html" %}
+{% block title %}{{ client.company }}{% endblock %}
+{% block topbar_title %}{{ client.company }}{% endblock %}
+
+{% block sidebar_nav %}
+<nav>
+  <div class="sidebar-section">Admin</div>
+  <a href="/admin"><span class="icon">🏠</span> Dashboard</a>
+  <a href="/admin/clients/new"><span class="icon">➕</span> Novo Cliente</a>
+  <div class="sidebar-section">{{ client.company }}</div>
+  {% if latest_report and latest_report.status in ('completed', 'partial') %}
+  <a href="/finops/{{ client.id }}"><span class="icon">💰</span> FinOps</a>
+  <a href="/security/{{ client.id }}"><span class="icon">🔒</span> Segurança</a>
+  {% endif %}
+  <a href="/portal/{{ client.access_token }}" target="_blank"><span class="icon">🔗</span> Portal do Cliente</a>
+  <div class="sidebar-section">Recursos</div>
+  <a href="/static/docs/cloud-sentinel-documentation.html" target="_blank"><span class="icon">📄</span> Documentação</a>
+</nav>
+{% endblock %}
+
+{% block topbar_right %}
+{% if latest_report and latest_report.status in ('completed', 'partial') %}
+<a href="/finops/{{ client.id }}" class="btn btn-outline btn-sm">💰 FinOps</a>
+<a href="/security/{{ client.id }}" class="btn btn-outline btn-sm">🔒 Segurança</a>
+<a href="/admin/clients/{{ client.id }}/cloudtrail-audit" class="btn btn-outline btn-sm">🔍 CloudTrail</a>
+<a href="/admin/reports/{{ latest_report.id }}/monthly-pdf" class="btn btn-outline btn-sm">📄 PDF Mensal</a>
+<a href="/admin/clients/{{ client.id }}/prowler-results" class="btn btn-outline btn-sm">🛡️ Prowler</a>
+{% endif %}
+{% if latest_report and latest_report.status == 'running' %}
+<button onclick="cancelAnalysis({{ latest_report.id }})"
+  class="btn btn-outline btn-sm" style="border-color:var(--pink);color:var(--pink)">
+  ⏸ Pausar Análise
+</button>
+{% else %}
+<form method="POST" action="/admin/clients/{{ client.id }}/analyze" style="display:inline">
+  <button type="submit" class="btn btn-primary btn-sm">
+    ⚡ Iniciar Análise
+  </button>
+</form>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+{% set analyzing = request.query_params.get('analyzing') %}
+{% set error = request.query_params.get('error') %}
+
+{% if analyzing %}
+<div class="card" id="analyzing-card" style="border:1.5px solid var(--pink);margin-bottom:24px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span class="spinner" id="analysis-spinner"></span>
+      <div>
+        <strong style="color:var(--navy)" id="analysis-title">Análise em andamento</strong>
+        <span style="font-size:12px;color:var(--text-light);margin-left:8px">
+          Pode levar 5–15 minutos dependendo do tamanho da conta
+        </span>
+      </div>
+    </div>
+    <button id="cancel-btn" onclick="cancelAnalysis()"
+      class="btn btn-navy btn-sm" style="flex-shrink:0;border:1.5px solid var(--pink)">
+      ⏸ Pausar
+    </button>
+  </div>
+
+  <!-- Visual Stage Progress (Item 16) -->
+  <div style="margin-bottom:14px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <span id="stage-label" style="font-size:12px;font-weight:600;color:var(--navy)">Aguardando início...</span>
+      <span id="stage-pct" style="font-size:12px;color:var(--pink);font-weight:700">0%</span>
+    </div>
+    <div class="progress-bar" style="height:8px;border-radius:4px">
+      <div id="stage-fill" class="progress-fill" style="width:0%;transition:width 0.8s ease"></div>
+    </div>
+    <!-- Stage dots -->
+    <div style="display:flex;justify-content:space-between;margin-top:8px">
+      {% set stages = [
+        ('aws', 'AWS Connect'),
+        ('cost', 'Coleta AWS'),
+        ('finops_ai', 'FinOps AI'),
+        ('security_ai', 'Security AI'),
+        ('combined', 'Análise Cruzada'),
+        ('done', 'Concluído')
+      ] %}
+      {% for sid, slabel in stages %}
+      <div style="text-align:center;flex:1" class="stage-dot-wrap" data-stage="{{ sid }}">
+        <div style="width:10px;height:10px;border-radius:50%;background:var(--blue-card);border:2px solid var(--blue-muted);margin:0 auto 3px" class="stage-dot"></div>
+        <span style="font-size:9px;color:var(--text-light);white-space:nowrap">{{ slabel }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Live progress log -->
+  <div id="progress-log"
+    style="background:#0B1956;color:#E2E8F0;border-radius:8px;padding:14px 16px;
+           font-family:monospace;font-size:12px;line-height:1.8;
+           max-height:220px;overflow-y:auto;min-height:50px">
+    <span style="color:#64748B">Aguardando início...</span>
+  </div>
+</div>
+{% endif %}
+
+{% if error == 'already_running' %}
+<div class="alert alert-warning">
+  ⚠️ Já existe uma análise em execução para este cliente.
+</div>
+{% endif %}
+
+<!-- Client info -->
+<div class="grid-2" style="margin-bottom:24px">
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Informações do Cliente</span>
+      <a href="/admin/clients/{{ client.id }}/edit" class="btn btn-outline btn-sm">Editar</a>
+    </div>
+    <table style="font-size:13px">
+      <tr><td style="color:var(--text-light);width:140px;padding:6px 0">Responsável</td><td style="padding:6px 0;font-weight:500">{{ client.name }}</td></tr>
+      <tr><td style="color:var(--text-light);padding:6px 0">E-mail</td><td style="padding:6px 0">{{ client.email }}</td></tr>
+      <tr><td style="color:var(--text-light);padding:6px 0">AWS Account</td><td style="padding:6px 0;font-family:monospace">{{ client.aws_account_id or '—' }}</td></tr>
+      <tr><td style="color:var(--text-light);padding:6px 0">Regiões</td><td style="padding:6px 0">
+        {% for r in client.aws_regions.split(',') %}<span class="tag">{{ r.strip() }}</span> {% endfor %}
+      </td></tr>
+      <tr><td style="color:var(--text-light);padding:6px 0">Status</td><td style="padding:6px 0">
+        {% if client.is_active %}<span class="badge badge-green">Ativo</span>{% else %}<span class="badge badge-red">Inativo</span>{% endif %}
+      </td></tr>
+    </table>
+
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--blue-card)">
+      <p style="font-size:12px;font-weight:600;color:var(--navy);margin-bottom:8px">Token de Acesso do Cliente</p>
+      <div class="token-box">
+        <span id="token-text">{{ client.access_token }}</span>
+        <button class="copy-btn" onclick="copyToClipboard('{{ client.access_token }}')">Copiar</button>
+      </div>
+      <p style="font-size:11px;color:var(--text-light);margin-top:6px">
+        Link do portal:
+        <a href="/portal/{{ client.access_token }}" target="_blank" style="color:var(--pink)">
+          /portal/{{ client.access_token[:20] }}...
+        </a>
+      </p>
+      <form method="POST" action="/admin/clients/{{ client.id }}/regenerate-token" style="margin-top:8px">
+        <button type="submit" class="btn btn-outline btn-sm" onclick="return confirm('Regenerar token invalidará o link atual. Confirma?')">
+          🔄 Regenerar Token
+        </button>
+      </form>
+    </div>
+  </div>
+
+  {% if latest_report and latest_report.status in ('completed', 'partial') %}
+  <div class="card">
+    {% if latest_report.status == 'partial' %}
+    {% set is_paused = latest_report.error_message and 'Pausado pelo usuário' in latest_report.error_message %}
+    <div style="background:#FFF3CD;border:1px solid #FBBF24;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12.5px;color:#92400E;display:flex;gap:8px;align-items:flex-start">
+      <span style="font-size:16px;line-height:1">⚠️</span>
+      <div>
+        {% if is_paused %}
+        <strong>Análise pausada</strong> — Os dados da conta AWS foram coletados com sucesso.
+        Clique em <strong>Continuar Análise IA</strong> para rodar somente a etapa de inteligência artificial (sem precisar coletar os dados novamente).
+        {% else %}
+        <strong>Análise parcial</strong> — Os dados da conta AWS foram coletados com sucesso.
+        A análise IA falhou (possivelmente limite de requisições). Clique em <strong>Continuar Análise IA</strong> para tentar novamente.
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+    <div class="card-header"><span class="card-title">Último Relatório</span></div>
+    <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+      <!-- Cost score -->
+      <div style="text-align:center">
+        {% set cs = latest_report.rightsizing_recommendations.cost_health_score if latest_report.rightsizing_recommendations else 0 %}
+        {% set cl = latest_report.rightsizing_recommendations.cost_health_label if latest_report.rightsizing_recommendations else 'N/A' %}
+        <div class="score-circle score-{% if cs >= 80 %}excellent{% elif cs >= 60 %}good{% elif cs >= 40 %}fair{% elif cs >= 20 %}poor{% else %}critical{% endif %}">
+          <span class="score-number">{{ cs }}</span>
+          <span class="score-label">FinOps</span>
+        </div>
+        <div style="font-size:11px;margin-top:4px;color:var(--text-light)">{{ cl }}</div>
+      </div>
+      <!-- Security score -->
+      <div style="text-align:center">
+        {% set ss = 0 %}
+        {% if latest_report.critical_findings is not none %}
+          {% set ss = [100 - (latest_report.critical_findings * 20) - (latest_report.high_findings * 10) - (latest_report.medium_findings * 5), 0] | max %}
+        {% endif %}
+        <div class="score-circle score-{% if ss >= 80 %}excellent{% elif ss >= 60 %}good{% elif ss >= 40 %}fair{% elif ss >= 20 %}poor{% else %}critical{% endif %}">
+          <span class="score-number">{{ ss }}</span>
+          <span class="score-label">Security</span>
+        </div>
+        <div style="font-size:11px;margin-top:4px;color:var(--text-light)">
+          {{ latest_report.critical_findings }}C / {{ latest_report.high_findings }}H
+        </div>
+      </div>
+      <!-- Savings -->
+      <div>
+        <div style="font-size:12px;color:var(--text-light);margin-bottom:4px">Custo Mensal</div>
+        <div style="font-size:22px;font-weight:700;color:var(--navy)">${{ "%.0f"|format(latest_report.monthly_cost or 0) }}</div>
+        <div style="font-size:12px;color:var(--low);font-weight:600">
+          💰 Pode economizar ${{ "%.0f"|format(latest_report.potential_savings or 0) }}/mês
+        </div>
+        <div style="font-size:11px;color:var(--text-light);margin-top:2px">
+          ({{ "%.1f"|format(latest_report.savings_percentage or 0) }}% do custo atual)
+        </div>
+      </div>
+    </div>
+
+    {% if latest_report.finops_summary %}
+    <div style="margin-top:16px;padding:12px;background:var(--bg-hero);border-radius:8px;font-size:12.5px;line-height:1.6">
+      {{ latest_report.finops_summary }}
+    </div>
+    {% endif %}
+
+    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+      <a href="/finops/{{ client.id }}" class="btn btn-primary btn-sm">💰 Ver FinOps</a>
+      <a href="/security/{{ client.id }}" class="btn btn-navy btn-sm">🔒 Ver Segurança</a>
+      <a href="/admin/reports/{{ latest_report.id }}/download-assessment" class="btn btn-outline btn-sm">📄 Baixar Assessment</a>
+      <a href="/admin/reports/{{ latest_report.id }}/print" target="_blank" class="btn btn-outline btn-sm">🖨️ Exportar PDF</a>
+      <a href="/admin/reports/{{ latest_report.id }}/monthly-pdf" class="btn btn-outline btn-sm">📊 PDF Mensal</a>
+      <a href="/admin/clients/{{ client.id }}/cloudtrail-audit" class="btn btn-outline btn-sm">🔍 Auditoria CloudTrail</a>
+      <a href="/admin/clients/{{ client.id }}/prowler-results" class="btn btn-outline btn-sm">🛡️ Prowler</a>
+      {% if latest_report.status == 'partial' and latest_report.raw_data %}
+      <form method="POST" action="/admin/clients/{{ client.id }}/continue/{{ latest_report.id }}" style="display:inline"
+        onsubmit="return confirm('Continuar análise IA usando os dados AWS já coletados? O processo pode levar 3–5 minutos.')">
+        <button type="submit" class="btn btn-outline btn-sm">▶ Continuar Análise IA</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  {% else %}
+  <div class="card">
+    <div class="empty-state">
+      <div class="icon">🔍</div>
+      <h3>Nenhuma análise ainda</h3>
+      <p>Clique em "Iniciar Análise" para analisar a conta AWS do cliente.</p>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Reports history -->
+{% if reports %}
+<div class="card">
+  <div class="card-header"><span class="card-title">Histórico de Análises</span></div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>ID</th><th>Status</th><th>Custo Mensal</th><th>Economia</th><th>Score Seg.</th><th>Críticos</th><th>Iniciado</th><th>Duração</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for comp in reports_with_comparison %}
+        {% set r = comp.report %}
+        {% set sec_score = [100 - (r.critical_findings or 0) * 20 - (r.high_findings or 0) * 10 - (r.medium_findings or 0) * 5, 0] | max %}
+        <tr id="report-row-{{ r.id }}">
+          <td style="font-size:12px;color:var(--text-light)">#{{ r.id }}</td>
+          <td>
+            {% if r.status == 'completed' %}<span class="badge badge-green">✓ Concluído</span>
+            {% elif r.status == 'partial' %}<span class="badge" style="background:#FEF3C7;color:#92400E;border:1px solid #FBBF24" title="{{ r.error_message }}">⚠ Parcial</span>
+            {% elif r.status == 'running' %}<span class="badge badge-navy" data-report-id="{{ r.id }}"><span class="spinner" style="width:12px;height:12px;border-width:2px"></span> Executando</span>
+            {% elif r.status == 'failed' %}<span class="badge badge-red" title="{{ r.error_message }}">✗ Falhou</span>
+            {% elif r.status == 'cancelled' %}<span class="badge" style="background:#FEE2E2;color:#7F1D1D;border:1px solid #FCA5A5" title="{{ r.error_message }}">⊘ Cancelado</span>
+            {% else %}<span class="badge badge-navy" data-report-id="{{ r.id }}">⏳ Pendente</span>{% endif %}
+          </td>
+          <td>
+            {% if r.monthly_cost %}
+              <div style="font-weight:600">${{ "%.0f"|format(r.monthly_cost) }}</div>
+              {% if comp.cost_delta is not none %}
+                {% if comp.cost_delta > 0 %}
+                  <div style="font-size:11px;color:var(--critical)">↑ +${{ "%.0f"|format(comp.cost_delta) }}</div>
+                {% elif comp.cost_delta < 0 %}
+                  <div style="font-size:11px;color:var(--low)">↓ -${{ "%.0f"|format(comp.cost_delta|abs) }}</div>
+                {% else %}
+                  <div style="font-size:11px;color:var(--text-light)">→ estável</div>
+                {% endif %}
+              {% endif %}
+            {% else %}—{% endif %}
+          </td>
+          <td>
+            {% if r.potential_savings %}
+              <span style="color:var(--low);font-weight:600">${{ "%.0f"|format(r.potential_savings) }}</span>
+              {% if comp.savings_delta is not none %}
+                {% if comp.savings_delta > 0 %}
+                  <div style="font-size:11px;color:var(--low)">↑ +${{ "%.0f"|format(comp.savings_delta) }}</div>
+                {% elif comp.savings_delta < 0 %}
+                  <div style="font-size:11px;color:var(--text-light)">↓ -${{ "%.0f"|format(comp.savings_delta|abs) }}</div>
+                {% endif %}
+              {% endif %}
+            {% else %}—{% endif %}
+          </td>
+          <td>
+            {% if r.critical_findings is not none %}
+              <span style="font-weight:600;color:{% if sec_score >= 70 %}var(--low){% elif sec_score >= 40 %}var(--medium){% else %}var(--critical){% endif %}">{{ sec_score }}</span>
+              {% if comp.score_delta is not none %}
+                {% if comp.score_delta > 0 %}
+                  <div style="font-size:11px;color:var(--low)">↑ +{{ comp.score_delta }}</div>
+                {% elif comp.score_delta < 0 %}
+                  <div style="font-size:11px;color:var(--critical)">↓ {{ comp.score_delta }}</div>
+                {% endif %}
+              {% endif %}
+            {% else %}—{% endif %}
+          </td>
+          <td>
+            {% if r.critical_findings %}
+              <span class="sev sev-critical">{{ r.critical_findings }}</span>
+              {% if comp.critical_delta is not none and comp.critical_delta != 0 %}
+                <div style="font-size:11px;color:{% if comp.critical_delta > 0 %}var(--critical){% else %}var(--low){% endif %}">
+                  {% if comp.critical_delta > 0 %}+{{ comp.critical_delta }}{% else %}{{ comp.critical_delta }}{% endif %}
+                </div>
+              {% endif %}
+            {% else %}—{% endif %}
+          </td>
+          <td style="font-size:12px;color:var(--text-light)">{{ r.started_at.strftime('%d/%m/%Y %H:%M') if r.started_at }}</td>
+          <td style="font-size:12px;color:var(--text-light)">
+            {% if r.completed_at and r.started_at %}
+              {{ ((r.completed_at - r.started_at).seconds // 60) }}m {{ ((r.completed_at - r.started_at).seconds % 60) }}s
+            {% else %}—{% endif %}
+          </td>
+          <td style="white-space:nowrap">
+            {% if r.status in ('completed', 'partial') %}
+            <a href="/finops/{{ client.id }}" class="btn btn-outline btn-sm">Ver</a>
+            <a href="/admin/reports/{{ r.id }}/download-assessment" class="btn btn-outline btn-sm" title="Baixar Assessment DOCX">📄</a>
+            {% endif %}
+            {% if r.status == 'partial' and r.raw_data %}
+            <form method="POST" action="/admin/clients/{{ client.id }}/continue/{{ r.id }}" style="display:inline"
+              onsubmit="return confirm('Continuar análise IA usando os dados já coletados?')">
+              <button type="submit" class="btn btn-primary btn-sm">▶ Continuar IA</button>
+            </form>
+            {% elif r.status in ('failed', 'cancelled') %}
+            <form method="POST" action="/admin/clients/{{ client.id }}/retry" style="display:inline">
+              <button type="submit" class="btn btn-outline btn-sm">↺ Nova Análise</button>
+            </form>
+            {% endif %}
+            {% if r.status == 'running' %}
+            <button onclick="cancelAnalysis({{ r.id }})"
+              class="btn btn-outline btn-sm" style="border-color:var(--pink);color:var(--pink)">⏸ Pausar</button>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% if error == 'cannot_delete_running' %}
+<div class="alert alert-warning" style="margin-top:16px">
+  ⚠️ Não é possível excluir o cliente enquanto uma análise está em execução.
+</div>
+{% endif %}
+
+<!-- Portal Visibility Settings -->
+<div class="card" style="margin-top:24px" id="visibility-card">
+  <div class="card-header">
+    <span class="card-title">👁 Visibilidade do Portal</span>
+    <span style="font-size:12px;color:var(--text-light)">Define o que o cliente vê no portal</span>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:0">
+    <!-- FinOps column -->
+    <div style="padding:0 16px 8px 0;border-right:1px solid var(--blue-card)">
+      <div style="font-size:11px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">💰 FinOps</div>
+      {% set vis = client.visibility_settings or {} %}
+      {% for key, label in [
+        ('finops_dashboard', 'Dashboard FinOps'),
+        ('finops_quick_wins', 'Quick Wins'),
+        ('finops_projects', 'Projetos'),
+        ('finops_unused', 'Recursos Ociosos'),
+        ('finops_correlations', 'Mapa de Correlações')
+      ] %}
+      <label style="display:flex;align-items:center;gap:10px;margin-bottom:10px;cursor:pointer;font-size:13px">
+        <input type="checkbox" class="vis-toggle" data-key="{{ key }}"
+          {% if vis.get(key, True) %}checked{% endif %}
+          style="width:16px;height:16px;accent-color:var(--pink);cursor:pointer"
+          onchange="saveVisibility()">
+        {{ label }}
+      </label>
+      {% endfor %}
+    </div>
+    <!-- Security column -->
+    <div style="padding:0 0 8px 16px">
+      <div style="font-size:11px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">🔒 Segurança</div>
+      {% for key, label in [
+        ('security_dashboard', 'Dashboard Segurança'),
+        ('security_quick_wins', 'Quick Wins'),
+        ('security_projects', 'Projetos'),
+        ('security_findings', 'Findings')
+      ] %}
+      <label style="display:flex;align-items:center;gap:10px;margin-bottom:10px;cursor:pointer;font-size:13px">
+        <input type="checkbox" class="vis-toggle" data-key="{{ key }}"
+          {% if vis.get(key, True) %}checked{% endif %}
+          style="width:16px;height:16px;accent-color:var(--pink);cursor:pointer"
+          onchange="saveVisibility()">
+        {{ label }}
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+  <div style="border-top:1px solid var(--blue-card);margin-top:4px;padding-top:10px;display:flex;align-items:center;gap:10px">
+    <span id="vis-status" style="font-size:12px;color:var(--text-light)">As alterações são salvas automaticamente.</span>
+  </div>
+</div>
+
+<!-- Scheduled Analysis -->
+<div class="card" style="margin-top:24px">
+  <div class="card-header">
+    <span class="card-title">🕐 Análise Agendada</span>
+    {% if client.schedule_enabled %}
+    <span class="badge badge-green">Ativa</span>
+    {% else %}
+    <span class="badge badge-navy" style="opacity:.6">Desativada</span>
+    {% endif %}
+  </div>
+  <form method="POST" action="/admin/clients/{{ client.id }}/schedule">
+    <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin-bottom:16px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;font-weight:500">
+        <input type="checkbox" name="enabled" value="true" {% if client.schedule_enabled %}checked{% endif %}
+          style="width:18px;height:18px;accent-color:var(--pink);cursor:pointer">
+        Ativar análise automática
+      </label>
+      <div style="display:flex;align-items:center;gap:8px">
+        <label style="font-size:13px;color:var(--text-light);font-weight:500">Intervalo:</label>
+        <select name="interval_days" class="form-select" style="width:auto;padding:6px 10px">
+          <option value="7"  {% if client.schedule_interval_days == 7  %}selected{% endif %}>Semanal (7 dias)</option>
+          <option value="14" {% if client.schedule_interval_days == 14 %}selected{% endif %}>Quinzenal (14 dias)</option>
+          <option value="30" {% if client.schedule_interval_days == 30 %}selected{% endif %}>Mensal (30 dias)</option>
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm">Salvar</button>
+    </div>
+    {% if client.schedule_enabled %}
+    <div style="display:flex;gap:24px;font-size:12px;color:var(--text-light);background:var(--bg-hero);padding:10px 14px;border-radius:8px">
+      <span>
+        🕒 Próxima análise:
+        <strong style="color:var(--navy)">{{ client.schedule_next_run.strftime('%d/%m/%Y %H:%M') if client.schedule_next_run else '—' }}</strong>
+      </span>
+      <span>
+        ✓ Última execução agendada:
+        <strong style="color:var(--navy)">{{ client.schedule_last_run.strftime('%d/%m/%Y %H:%M') if client.schedule_last_run else 'Nunca' }}</strong>
+      </span>
+    </div>
+    {% else %}
+    <p style="font-size:12px;color:var(--text-light)">
+      Quando ativada, a análise é disparada automaticamente no intervalo configurado — sem precisar acessar o painel.
+    </p>
+    {% endif %}
+  </form>
+</div>
+
+<!-- Danger zone -->
+<div class="card" style="margin-top:24px;border:1.5px solid rgba(229,62,62,0.2)">
+  <div class="card-header"><span class="card-title" style="color:var(--critical)">Zona de Perigo</span></div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+    <form method="POST" action="/admin/clients/{{ client.id }}/toggle">
+      <button type="submit" class="btn {% if client.is_active %}btn-danger{% else %}btn-outline{% endif %} btn-sm">
+        {% if client.is_active %}🚫 Desativar Cliente{% else %}✅ Ativar Cliente{% endif %}
+      </button>
+    </form>
+    <form method="POST" action="/admin/clients/{{ client.id }}/delete"
+      onsubmit="return confirm('ATENÇÃO: Isso excluirá o cliente {{ client.company }} e TODOS os seus relatórios permanentemente. Tem certeza?')">
+      <button type="submit" class="btn btn-danger btn-sm">🗑 Excluir Cliente</button>
+    </form>
+  </div>
+  <p style="font-size:11px;color:var(--text-light);margin-top:10px">
+    Excluir o cliente remove permanentemente todos os relatórios e dados associados. Esta ação não pode ser desfeita.
+  </p>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// ── Visibility Settings ─────────────────────────────────────────────────────
+async function saveVisibility() {
+  const toggles = document.querySelectorAll('.vis-toggle');
+  const settings = {};
+  toggles.forEach(t => { settings[t.dataset.key] = t.checked; });
+
+  const statusEl = document.getElementById('vis-status');
+  if (statusEl) statusEl.textContent = 'Salvando...';
+
+  const res = await fetch('/admin/clients/{{ client.id }}/visibility', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(settings)
+  });
+
+  if (statusEl) {
+    statusEl.textContent = res.ok ? '✓ Salvo' : '✗ Erro ao salvar';
+    statusEl.style.color = res.ok ? 'var(--low)' : 'var(--critical)';
+    setTimeout(() => {
+      statusEl.textContent = 'As alterações são salvas automaticamente.';
+      statusEl.style.color = 'var(--text-light)';
+    }, 2000);
+  }
+}
+
+// ── Determine which report to watch ────────────────────────────────────────
+const analyzingParam = "{{ analyzing or '' }}";
+let watchReportId = analyzingParam && !isNaN(analyzingParam) ? parseInt(analyzingParam) : null;
+
+if (!watchReportId) {
+  const firstRunning = document.querySelector('[data-report-id]');
+  if (firstRunning) watchReportId = parseInt(firstRunning.dataset.reportId);
+}
+
+// ── Stage definitions (Item 16) ─────────────────────────────────────────────
+const STAGES = [
+  { id: 'aws',         pct: 5,  label: 'AWS Connect',    keywords: ['conectando à conta aws', 'assumedrole'] },
+  { id: 'cost',        pct: 45, label: 'Coleta AWS',     keywords: ['dados aws coletados'] },
+  { id: 'finops_ai',   pct: 55, label: 'FinOps AI',      keywords: ['analisando finops'] },
+  { id: 'security_ai', pct: 75, label: 'Security AI',    keywords: ['finops concluído', 'analisando segurança'] },
+  { id: 'combined',    pct: 92, label: 'Análise Cruzada', keywords: ['segurança concluída', 'gerando análise cruzada'] },
+  { id: 'done',        pct: 100, label: 'Concluído',     keywords: ['análise cruzada concluída', 'análise concluída com sucesso'] },
+];
+
+function detectStageFromLogs(entries) {
+  if (!entries || entries.length === 0) return null;
+  const allText = entries.map(e => (e.message || '').toLowerCase()).join(' ');
+  let best = null;
+  for (const s of STAGES) {
+    if (s.keywords.some(k => allText.includes(k))) best = s;
+  }
+  return best;
+}
+
+function renderProgress(entries) {
+  const fillEl = document.getElementById('stage-fill');
+  const labelEl = document.getElementById('stage-label');
+  const pctEl = document.getElementById('stage-pct');
+  if (!fillEl) return;
+
+  const stage = detectStageFromLogs(entries);
+  if (!stage) return;
+
+  fillEl.style.width = stage.pct + '%';
+  if (labelEl) labelEl.textContent = stage.label;
+  if (pctEl) pctEl.textContent = stage.pct + '%';
+
+  // Update dots
+  let reached = false;
+  document.querySelectorAll('.stage-dot-wrap').forEach(wrap => {
+    const dot = wrap.querySelector('.stage-dot');
+    if (!dot) return;
+    if (wrap.dataset.stage === stage.id) {
+      dot.style.background = '#FF679A';
+      dot.style.borderColor = '#FF679A';
+      reached = true;
+    } else if (!reached) {
+      dot.style.background = '#38A169';
+      dot.style.borderColor = '#38A169';
+    }
+  });
+}
+
+// ── Live log rendering ──────────────────────────────────────────────────────
+const logEl = document.getElementById('progress-log');
+
+function renderLog(entries) {
+  if (!logEl || !entries || entries.length === 0) return;
+  const colors = { running: '#93C5FD', done: '#6EE7B7', error: '#FCA5A5', warn: '#FCD34D', info: '#94A3B8' };
+  const icons  = { running: '⟳', done: '✓', error: '✗', warn: '⚠', info: '·' };
+  logEl.innerHTML = entries.map(e =>
+    `<div><span style="color:#475569">[${e.time}]</span> ` +
+    `<span style="color:${colors[e.status]||'#94A3B8'}">${icons[e.status]||'·'} ${e.message}</span></div>`
+  ).join('');
+  logEl.scrollTop = logEl.scrollHeight;
+  renderProgress(entries);
+}
+
+// ── Polling ─────────────────────────────────────────────────────────────────
+const TERMINAL_STATUSES = ['completed', 'partial', 'failed', 'cancelled'];
+let isPausing = false;
+let pollInterval = null;
+
+function showStatusBanner(status) {
+  const existing = document.getElementById('status-banner');
+  if (existing) existing.remove();
+
+  const map = {
+    completed: { bg: '#d1fae5', color: '#065f46', icon: '✓', text: 'Análise concluída com sucesso! Recarregando...' },
+    partial:   { bg: '#fef9c3', color: '#713f12', icon: '⚠', text: 'Análise pausada/parcial. Recarregando...' },
+    failed:    { bg: '#fee2e2', color: '#7f1d1d', icon: '✗', text: 'Análise falhou. Recarregando...' },
+    cancelled: { bg: '#f3f4f6', color: '#374151', icon: '⊘', text: 'Análise cancelada. Recarregando...' },
+  };
+  const m = map[status] || map.partial;
+  const banner = document.createElement('div');
+  banner.id = 'status-banner';
+  banner.style.cssText = `position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:9999;padding:10px 24px;border-radius:8px;font-weight:600;font-size:14px;background:${m.bg};color:${m.color};box-shadow:0 4px 12px rgba(0,0,0,.15)`;
+  banner.textContent = `${m.icon} ${m.text}`;
+  document.body.appendChild(banner);
+}
+
+if (watchReportId) {
+  pollInterval = setInterval(async () => {
+    try {
+      const res = await fetch(`/admin/reports/${watchReportId}/status`);
+      const data = await res.json();
+
+      renderLog(data.progress_log);
+
+      if (TERMINAL_STATUSES.includes(data.status)) {
+        clearInterval(pollInterval);
+        showStatusBanner(data.status);
+        // Navigate to clean URL (without ?analyzing=X) so the card doesn't reappear on load
+        setTimeout(() => { location.href = location.pathname; }, 3000);
+      } else if (isPausing) {
+        // Visual feedback: dim spinner, update title
+        const spinner = document.getElementById('analysis-spinner');
+        const title   = document.getElementById('analysis-title');
+        if (spinner) spinner.style.opacity = '0.25';
+        if (title)   title.textContent = 'Pausando análise...';
+        const btn = document.getElementById('cancel-btn');
+        if (btn) btn.textContent = 'Pausando... (aguardando etapa atual)';
+      }
+    } catch(e) {}
+  }, 3000);
+}
+
+// ── Pause ────────────────────────────────────────────────────────────────────
+async function cancelAnalysis(reportId) {
+  const id = reportId || watchReportId;
+  if (!id) return;
+
+  const msg = 'Pausar a análise?\n\n' +
+    '• Se os dados AWS já foram coletados, serão salvos e você poderá continuar a etapa de AI depois.\n' +
+    '• A análise vai terminar o passo atual antes de pausar (pode levar até 2 min).';
+  if (!confirm(msg)) return;
+
+  const btn = document.getElementById('cancel-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Sinal enviado — aguardando passo atual...'; }
+  isPausing = true;
+
+  try {
+    await fetch(`/admin/reports/${id}/cancel`, { method: 'POST' });
+    // Keep polling — the thread will stop at the next checkpoint and set a terminal status
+  } catch(e) {
+    if (btn) { btn.disabled = false; btn.textContent = '⏸ Pausar'; }
+    isPausing = false;
+  }
+}
+</script>
+{% endblock %}
+
+{% block tour_steps %}
+<script>
+window._pageTourSteps = [
+  {
+    selector: '.topbar-right',
+    title: 'Iniciar Análise',
+    desc: 'O botão "Iniciar Análise" dispara a coleta completa de dados AWS + análise por IA. O processo leva entre 5 e 15 minutos dependendo do tamanho da conta. Só é possível ter uma análise rodando por vez.',
+    pos: 'bottom'
+  },
+  {
+    selector: '.grid-2 .card:first-child',
+    title: 'Informações do Cliente',
+    desc: 'Dados cadastrais: responsável, e-mail, account ID AWS e as regiões que serão analisadas. Use o botão Editar para alterar a role IAM ou adicionar regiões.',
+    pos: 'bottom'
+  },
+  {
+    selector: '.token-box',
+    title: 'Token de Acesso do Portal',
+    desc: 'Token único que o cliente usa para acessar o portal em /portal/{token}. Use "Copiar" para enviar o link ao cliente. Se o token for comprometido, clique em "Regenerar Token".',
+    pos: 'top'
+  },
+  {
+    selector: '.score-circle',
+    title: 'Scores FinOps e Segurança',
+    desc: 'Círculos com os scores do último relatório. Verde (≥80) = excelente, Azul (60–79) = bom, Amarelo (40–59) = regular, Laranja (20–39) = ruim, Vermelho (<20) = crítico.',
+    pos: 'bottom'
+  },
+  {
+    selector: '#analyzing-card, .grid-2 .card:last-child',
+    title: 'Status e Progresso da Análise',
+    desc: 'Durante uma análise, acompanhe as etapas em tempo real: AWS Connect → Coleta AWS → FinOps AI → Security AI → Análise Cruzada → Concluído. O botão "Pausar" interrompe no final da etapa atual.',
+    pos: 'bottom'
+  },
+  {
+    selector: 'table:last-of-type',
+    title: 'Histórico de Análises',
+    desc: 'Todos os relatórios anteriores deste cliente com status, custo mensal, savings identificados e data. Clique em "Ver FinOps" ou "Ver Security" para acessar análises concluídas.',
+    pos: 'top'
+  },
+];
+</script>
+{% endblock %}

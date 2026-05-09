@@ -1,0 +1,65 @@
+{% extends "client/base.html" %}
+{% block title %}Projetos — {{ client.company }}{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:20px">
+  <h2 style="font-size:20px;font-weight:700;color:var(--navy)">🗂️ Projetos Estratégicos</h2>
+  <p style="font-size:13px;color:var(--text-light);margin-top:4px">
+    Iniciativas que requerem planejamento e dedicação, mas com alto retorno.
+  </p>
+</div>
+
+{% if not projects %}
+<div class="empty-state card"><div class="icon">🗂️</div><h3>Nenhum projeto disponível</h3></div>
+{% else %}
+
+{% set finops_proj = [] %}
+{% set sec_proj = [] %}
+{% for p in projects %}
+  {% if p.get('area') == 'security' %}{% set _ = sec_proj.append(p) %}
+  {% else %}{% set _ = finops_proj.append(p) %}{% endif %}
+{% endfor %}
+
+{% if finops_proj %}
+<h3 style="font-size:14px;font-weight:600;color:var(--navy);margin-bottom:12px">💰 Projetos FinOps</h3>
+{% for p in finops_proj %}
+<div class="action-card" style="border-left:4px solid var(--pink)">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px">
+    <div>
+      <div class="action-card-title">{{ p.title }}</div>
+      <div class="action-meta">
+        <span class="tag">📅 ~{{ p.effort_weeks or '?' }} semanas</span>
+        <span class="tag">{{ (p.category or 'geral')|title }}</span>
+        <span class="sev sev-{% if p.risk == 'high' %}critical{% elif p.risk == 'medium' %}medium{% else %}low{% endif %}">risco {{ p.risk or 'N/A' }}</span>
+      </div>
+    </div>
+    {% if p.estimated_savings_monthly %}<div style="color:var(--low);font-weight:700;font-size:16px;flex-shrink:0">${{ "%.0f"|format(p.estimated_savings_monthly) }}/mês</div>{% endif %}
+  </div>
+  <p style="font-size:13px;color:var(--text-light);line-height:1.6;margin-bottom:8px">{{ p.description }}</p>
+  {% if p.business_value %}<div style="background:var(--blue-card);border-radius:6px;padding:8px 12px;font-size:12.5px;margin-bottom:8px"><strong>Valor:</strong> {{ p.business_value }}</div>{% endif %}
+  {% if p.steps %}<ol class="action-steps">{% for s in p.steps %}<li>{{ s }}</li>{% endfor %}</ol>{% endif %}
+</div>
+{% endfor %}
+{% endif %}
+
+{% if sec_proj %}
+<h3 style="font-size:14px;font-weight:600;color:var(--navy);margin:24px 0 12px">🔒 Projetos de Segurança</h3>
+{% for p in sec_proj %}
+<div class="action-card" style="border-left:4px solid var(--critical)">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px">
+    <div>
+      <div class="action-card-title">{{ p.title }}</div>
+      <div class="action-meta">
+        <span class="sev sev-{{ p.severity or 'medium' }}">{{ p.severity or 'medium' }}</span>
+        <span class="tag">📅 ~{{ p.effort_weeks or '?' }} semanas</span>
+      </div>
+    </div>
+  </div>
+  <p style="font-size:13px;color:var(--text-light);line-height:1.6;margin-bottom:8px">{{ p.description }}</p>
+  {% if p.business_impact %}<div style="background:rgba(229,62,62,0.05);border-radius:6px;padding:8px 12px;font-size:12.5px;margin-bottom:8px"><strong>Impacto:</strong> {{ p.business_impact }}</div>{% endif %}
+  {% if p.steps %}<ol class="action-steps">{% for s in p.steps %}<li>{{ s }}</li>{% endfor %}</ol>{% endif %}
+</div>
+{% endfor %}
+{% endif %}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% block title %}Prowler — {{ client.company }}{% endblock %}
+{% block topbar_title %}🛡️ Security Posture Report — Prowler{% endblock %}
+
+{% block sidebar_nav %}
+<nav>
+  <div class="sidebar-section">Admin</div>
+  <a href="/admin"><span class="icon">🏠</span> Dashboard</a>
+  <a href="/admin/clients/{{ client.id }}"><span class="icon">👤</span> {{ client.company }}</a>
+  <div class="sidebar-section">Ferramentas</div>
+  <a href="/admin/clients/{{ client.id }}/cloudtrail-audit"><span class="icon">🔍</span> Auditoria CloudTrail</a>
+  <a href="/admin/clients/{{ client.id }}/prowler-results" class="active"><span class="icon">🛡️</span> Prowler</a>
+  <div class="sidebar-section">{{ client.company }}</div>
+  <a href="/finops/{{ client.id }}"><span class="icon">💰</span> FinOps</a>
+  <a href="/security/{{ client.id }}"><span class="icon">🔒</span> Segurança</a>
+  <div class="sidebar-section">Recursos</div>
+  <a href="/static/docs/cloud-sentinel-documentation.html" target="_blank"><span class="icon">📄</span> Documentação</a>
+</nav>
+{% endblock %}
+
+{% block content %}
+
+<!-- Status & trigger -->
+<div class="card" style="margin-bottom:20px">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+    <div>
+      <h3 style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:4px">
+        🛡️ Prowler — Análise de Postura de Segurança
+      </h3>
+      <p style="font-size:12px;color:var(--text-light);margin:0">
+        Prowler executa centenas de verificações baseadas em CIS, NIST, SOC2 e PCI-DSS.
+        A análise pode levar 30–60 minutos.
+      </p>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      {% if prowler_status == 'running' or (state and state.status == 'running') %}
+      <span style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;background:rgba(217,119,6,0.1);
+        color:#d97706;border-radius:20px;font-size:12px;font-weight:600">
+        <span class="spinner" style="width:12px;height:12px;border-width:2px"></span>
+        Scan em andamento...
+      </span>
+      <button onclick="location.reload()" class="btn btn-outline btn-sm">🔄 Atualizar</button>
+      {% elif prowler_available %}
+      {% if not report %}
+      <span style="font-size:12px;color:var(--text-light)">Rode uma análise completa primeiro.</span>
+      {% else %}
+      <button onclick="startScan()" class="btn btn-primary btn-sm" id="scan-btn">
+        ▶ Iniciar Scan Prowler
+      </button>
+      {% endif %}
+      {% else %}
+      <span style="font-size:12px;color:var(--critical)">
+        Prowler não instalado — execute: <code>pip install prowler</code>
+      </span>
+      {% endif %}
+      {% if prowler_status == 'completed' and report %}
+      <a href="/admin/reports/{{ report.id }}/monthly-pdf" class="btn btn-outline btn-sm">
+        📄 Incluir no PDF Mensal
+      </a>
+      {% endif %}
+    </div>
+  </div>
+  {% if prowler_status %}
+  <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:12px;color:var(--text-light)">
+    Status: <strong>{{ prowler_status }}</strong>
+    {% if report and report.prowler_started_at %}
+     &nbsp;|&nbsp; Iniciado em: <strong>{{ report.prowler_started_at.strftime('%d/%m/%Y %H:%M') }}</strong>
+    {% endif %}
+    {% if report and report.prowler_completed_at %}
+     &nbsp;|&nbsp; Concluído em: <strong>{{ report.prowler_completed_at.strftime('%d/%m/%Y %H:%M') }}</strong>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+{% if prowler_status == 'failed' %}
+<div class="card" style="border-left:4px solid var(--critical);margin-bottom:20px">
+  <p style="color:var(--critical);font-size:13px;margin:0">
+    <strong>Scan falhou.</strong>
+    {% if findings.error %}{{ findings.error }}{% endif %}
+  </p>
+</div>
+{% endif %}
+
+{% if prowler_status == 'completed' and total > 0 %}
+
+<!-- Summary stats -->
+<div class="stats-grid" style="margin-bottom:24px">
+  <div class="stat-card red">
+    <span class="stat-label">Critical</span>
+    <span class="stat-value">{{ findings.critical|length if findings.critical else 0 }}</span>
+    <span class="stat-sub">findings críticos</span>
+  </div>
+  <div class="stat-card orange">
+    <span class="stat-label">High</span>
+    <span class="stat-value">{{ findings.high|length if findings.high else 0 }}</span>
+    <span class="stat-sub">findings altos</span>
+  </div>
+  <div class="stat-card" style="border-left-color:#d97706">
+    <span class="stat-label">Medium</span>
+    <span class="stat-value">{{ findings.medium|length if findings.medium else 0 }}</span>
+    <span class="stat-sub">findings médios</span>
+  </div>
+  <div class="stat-card" style="border-left-color:var(--low)">
+    <span class="stat-label">Low</span>
+    <span class="stat-value">{{ findings.low|length if findings.low else 0 }}</span>
+    <span class="stat-sub">findings baixos</span>
+  </div>
+</div>
+
+<!-- Findings by severity -->
+{% for sev, sev_label, sev_color in [
+  ('critical', 'CRITICAL', 'var(--critical)'),
+  ('high',     'HIGH',     '#ea580c'),
+  ('medium',   'MEDIUM',   '#d97706'),
+  ('low',      'LOW',      'var(--low)'),
+  ('informational', 'INFO', 'var(--text-light)')
+] %}
+{% set sev_list = findings[sev] if findings[sev] is defined else [] %}
+{% if sev_list %}
+<div style="margin-bottom:24px">
+  <h3 style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:12px;
+    display:flex;align-items:center;gap:8px">
+    <span class="sev sev-{{ sev }}">{{ sev_label }}</span>
+    <span style="color:var(--text-light);font-weight:400">({{ sev_list|length }})</span>
+  </h3>
+  {% for f in sev_list %}
+  <div class="action-card" style="border-left:4px solid {{ sev_color }};margin-bottom:10px">
+    <div style="font-weight:600;color:var(--navy);font-size:13px;margin-bottom:4px">
+      {{ f.title }}
+    </div>
+    {% if f.description and f.description != f.title %}
+    <p style="font-size:12px;color:var(--text-light);margin-bottom:8px;line-height:1.5">
+      {{ f.description }}
+    </p>
+    {% endif %}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+      {% if f.region %}
+      <span class="tag">📍 {{ f.region }}</span>
+      {% endif %}
+      {% if f.resource_type %}
+      <span class="tag">{{ f.resource_type }}</span>
+      {% endif %}
+      {% if f.check_id %}
+      <span class="tag" style="font-family:monospace;font-size:10px">{{ f.check_id }}</span>
+      {% endif %}
+    </div>
+    {% if f.resource_uid %}
+    <div style="font-family:monospace;font-size:11px;color:var(--text-light);margin-bottom:6px;
+      word-break:break-all">{{ f.resource_uid }}</div>
+    {% endif %}
+    {% if f.remediation %}
+    <div style="background:rgba(56,161,105,0.07);border-radius:6px;padding:8px 12px;font-size:12px">
+      <strong style="color:var(--low)">Remediação:</strong> {{ f.remediation }}
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endfor %}
+
+{% elif prowler_status == 'completed' and total == 0 %}
+<div class="empty-state card">
+  <div class="icon">🎉</div>
+  <h3>Nenhum finding encontrado!</h3>
+  <p>A conta passou em todas as verificações do Prowler.</p>
+</div>
+
+{% elif not prowler_status %}
+<div class="empty-state card">
+  <div class="icon">🛡️</div>
+  <h3>Nenhum scan Prowler executado ainda</h3>
+  <p>Clique em "Iniciar Scan Prowler" para executar uma análise completa de postura de segurança.</p>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+async function startScan() {
+  const btn = document.getElementById('scan-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Iniciando...'; }
+
+  const res = await fetch('/admin/clients/{{ client.id }}/prowler-scan', { method: 'POST' });
+  const data = await res.json();
+
+  if (data.ok) {
+    location.reload();
+  } else {
+    alert(data.message || 'Erro ao iniciar scan');
+    if (btn) { btn.disabled = false; btn.textContent = '▶ Iniciar Scan Prowler'; }
+  }
+}
+
+// Auto-refresh while running
+{% if prowler_status == 'running' or (state and state.status == 'running') %}
+setTimeout(() => location.reload(), 30000);
+{% endif %}
+</script>
+{% endblock %}

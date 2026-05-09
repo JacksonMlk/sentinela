@@ -1,0 +1,87 @@
+{% extends "client/base.html" %}
+{% block title %}FinOps — {{ client.company }}{% endblock %}
+
+{% block content %}
+{% if not report %}
+<div class="empty-state card"><div class="icon">📊</div><h3>Análise não disponível</h3><p>Aguarde nossa equipe iniciar a análise.</p></div>
+{% else %}
+{% set fin = report.rightsizing_recommendations or {} %}
+
+{% if fin.executive_summary %}
+<div class="alert alert-info">
+  <span style="font-size:18px">🤖</span>
+  <div><strong>Análise Claude AI:</strong> {{ fin.executive_summary }}</div>
+</div>
+{% endif %}
+
+<div class="stats-grid">
+  <div class="stat-card navy"><span class="stat-label">Custo Mensal</span><span class="stat-value">${{ "%.0f"|format(report.monthly_cost or 0) }}</span></div>
+  <div class="stat-card green"><span class="stat-label">Economia Potencial</span><span class="stat-value">${{ "%.0f"|format(report.potential_savings or 0) }}</span><span class="stat-sub">{{ "%.1f"|format(report.savings_percentage or 0) }}%</span></div>
+  <div class="stat-card"><span class="stat-label">Quick Wins FinOps</span><span class="stat-value">{{ (report.quick_wins or [])|selectattr('area', 'ne', 'security')|list|length }}</span></div>
+</div>
+
+<div class="grid-2" style="margin-bottom:24px">
+  <div class="card">
+    <div class="card-header"><span class="card-title">Tendência de Custos</span></div>
+    <canvas id="trendChart" height="200"></canvas>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">Top Serviços</span></div>
+    <canvas id="serviceChart" height="200"></canvas>
+  </div>
+</div>
+
+{% if fin.service_suggestions %}
+<div class="card" style="margin-bottom:24px">
+  <div class="card-header"><span class="card-title">💡 Sugestões de Serviços</span></div>
+  {% for s in fin.service_suggestions %}
+  <div style="padding:12px 0;border-bottom:1px solid var(--blue-card);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+    <div>
+      <span style="color:var(--navy-mid)">{{ s.current_service }}</span>
+      <span style="color:var(--blue-muted);margin:0 8px">→</span>
+      <span style="color:var(--pink);font-weight:600">{{ s.suggested_service }}</span>
+      <div style="font-size:12px;color:var(--text-light);margin-top:4px">{{ s.reason }}</div>
+    </div>
+    <div style="text-align:right">
+      <div style="color:var(--low);font-weight:700">{{ s.estimated_savings_percentage }}% economia</div>
+      <span class="sev sev-{% if s.migration_complexity == 'high' %}critical{% elif s.migration_complexity == 'medium' %}medium{% else %}low{% endif %}">{{ s.migration_complexity }}</span>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if fin.cost_anomalies %}
+<div class="card">
+  <div class="card-header"><span class="card-title">⚠️ Anomalias de Custo</span></div>
+  {% for a in fin.cost_anomalies %}
+  <div class="alert alert-warning">{{ a }}</div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+{% if report and report.cost_trend %}
+<script>
+const trendData = {{ report.cost_trend | tojson }};
+const serviceData = {{ (report.cost_by_service or []) | tojson }};
+if (trendData.length > 0) {
+  new Chart(document.getElementById('trendChart').getContext('2d'), {
+    type: 'line',
+    data: { labels: trendData.map(d => d.period.substring(0,7)), datasets: [{ label: 'Custo ($)', data: trendData.map(d => d.cost.toFixed(2)), borderColor: '#FF679A', backgroundColor: 'rgba(255,103,154,0.1)', borderWidth: 2, fill: true, tension: 0.4, pointBackgroundColor: '#FF679A', pointRadius: 4 }] },
+    options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { ticks: { callback: v => '$'+v.toLocaleString() } }, x: { grid: { display: false } } } }
+  });
+}
+if (serviceData.length > 0) {
+  const top8 = serviceData.slice(0,8);
+  new Chart(document.getElementById('serviceChart').getContext('2d'), {
+    type: 'bar',
+    data: { labels: top8.map(s => s.service.replace('Amazon ','').replace('AWS ','')), datasets: [{ data: top8.map(s => s.cost.toFixed(2)), backgroundColor: ['#0B1956','#FF679A','#3182CE','#38A169','#D69E2E','#DD6B20','#805AD5','#2B6CB0'], borderRadius: 6 }] },
+    options: { responsive: true, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { ticks: { callback: v => '$'+v.toLocaleString() } } } }
+  });
+}
+</script>
+{% endif %}
+{% endblock %}

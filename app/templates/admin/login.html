@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login — Sentinela FinOps</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;900&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --pink:  #FF679A;
+      --navy:  #0B1956;
+      --bg:    #FAF3EB;
+      --white: #FFFFFF;
+      --blue-muted: #A9B8D3;
+      --blue-card:  #EEF2F9;
+      --text:  #1F2E47;
+      --text-light: #6B7A8F;
+      --critical: #E53E3E;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: var(--bg);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .login-wrap {
+      width: 100%;
+      max-width: 420px;
+      padding: 16px;
+    }
+    .login-card {
+      background: var(--white);
+      border-radius: 20px;
+      box-shadow: 0 8px 40px rgba(11,25,86,0.14);
+      padding: 40px 36px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 28px;
+    }
+    .brand-dot {
+      width: 12px; height: 12px;
+      background: var(--pink);
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .brand-name {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--navy);
+    }
+    .brand-sub {
+      font-size: 11px;
+      color: var(--text-light);
+      margin-top: 1px;
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--navy);
+      margin-bottom: 6px;
+    }
+    .subtitle {
+      font-size: 13px;
+      color: var(--text-light);
+      margin-bottom: 28px;
+    }
+    .form-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--navy);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+    .form-input {
+      width: 100%;
+      padding: 11px 14px;
+      border: 1.5px solid var(--blue-muted);
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 14px;
+      color: var(--text);
+      background: var(--white);
+      transition: border-color .2s;
+      margin-bottom: 20px;
+    }
+    .form-input:focus {
+      outline: none;
+      border-color: var(--pink);
+    }
+    .btn-login {
+      width: 100%;
+      padding: 12px;
+      background: var(--navy);
+      color: var(--white);
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 700;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background .2s;
+      letter-spacing: .3px;
+    }
+    .btn-login:hover { background: #0d1f6e; }
+    .error-msg {
+      background: rgba(229,62,62,0.08);
+      border-left: 4px solid var(--critical);
+      color: var(--critical);
+      font-size: 13px;
+      padding: 10px 14px;
+      border-radius: 6px;
+      margin-bottom: 18px;
+    }
+    .footer-note {
+      text-align: center;
+      font-size: 11px;
+      color: var(--text-light);
+      margin-top: 24px;
+    }
+  </style>
+</head>
+<body>
+<div class="login-wrap">
+  <div class="login-card">
+    <div class="brand">
+      <div class="brand-dot"></div>
+      <div>
+        <div class="brand-name">Sentinela</div>
+        <div class="brand-sub">FinOps & Security Analyzer</div>
+      </div>
+    </div>
+
+    <h1>Acesso restrito</h1>
+    <p class="subtitle">Painel administrativo interno. Informe a senha de acesso.</p>
+
+    {% if error == "invalid" %}
+    <div class="error-msg">Senha incorreta. Tente novamente.</div>
+    {% endif %}
+
+    <form method="post" action="/admin/login">
+      <label class="form-label" for="password">Senha</label>
+      <input
+        id="password"
+        name="password"
+        type="password"
+        class="form-input"
+        placeholder="••••••••••••"
+        autofocus
+        autocomplete="current-password"
+        required
+      />
+      <button type="submit" class="btn-login">Entrar</button>
+    </form>
+
+    <div class="footer-note">Powered by Claude AI &amp; boto3</div>
+  </div>
+</div>
+</body>
+</html>

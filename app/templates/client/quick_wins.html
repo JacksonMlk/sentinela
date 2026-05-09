@@ -1,0 +1,208 @@
+{% extends "client/base.html" %}
+{% block title %}Quick Wins — {{ client.company }}{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:20px">
+  <h2 style="font-size:20px;font-weight:700;color:var(--navy)">⚡ Quick Wins</h2>
+  <p style="font-size:13px;color:var(--text-light);margin-top:4px">
+    Ações que podem ser implementadas rapidamente pela equipe, com alto impacto e baixo risco.
+  </p>
+</div>
+
+{% if not quick_wins %}
+<div class="empty-state card"><div class="icon">⚡</div><h3>Nenhum quick win disponível</h3></div>
+{% else %}
+
+{% set finops_wins = [] %}
+{% set sec_wins = [] %}
+{% for qw in quick_wins %}
+  {% if qw.get('area') == 'security' %}{% set _ = sec_wins.append(qw) %}
+  {% else %}{% set _ = finops_wins.append(qw) %}{% endif %}
+{% endfor %}
+
+<!-- Summary stats -->
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px">
+  <div class="card" style="padding:16px;text-align:center">
+    <div style="font-size:28px;font-weight:700;color:var(--navy)">{{ quick_wins|length }}</div>
+    <div style="font-size:11px;color:var(--text-light);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Total de Ações</div>
+  </div>
+  <div class="card" style="padding:16px;text-align:center">
+    <div style="font-size:28px;font-weight:700;color:var(--pink)">{{ finops_wins|length }}</div>
+    <div style="font-size:11px;color:var(--text-light);font-weight:600;text-transform:uppercase;letter-spacing:.5px">FinOps</div>
+  </div>
+  <div class="card" style="padding:16px;text-align:center">
+    <div style="font-size:28px;font-weight:700;color:var(--navy)">{{ sec_wins|length }}</div>
+    <div style="font-size:11px;color:var(--text-light);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Segurança</div>
+  </div>
+  {% set total_savings = finops_wins | selectattr('estimated_savings_monthly') | map(attribute='estimated_savings_monthly') | list %}
+  {% if total_savings %}
+  <div class="card" style="padding:16px;text-align:center;border-left:3px solid var(--low)">
+    <div style="font-size:22px;font-weight:700;color:var(--low)">${{ "%.0f"|format(total_savings | sum) }}/mês</div>
+    <div style="font-size:11px;color:var(--text-light);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Economia Potencial</div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Filter bar -->
+<div id="filter-bar" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;padding:12px 16px;background:var(--white);border-radius:12px;box-shadow:0 2px 8px rgba(11,25,86,0.06)">
+  <span style="font-size:12px;font-weight:600;color:var(--text-light);align-self:center;margin-right:4px">Filtrar:</span>
+  <button class="filter-btn active" onclick="filterQW('all', this)" style="padding:5px 14px;border-radius:20px;border:1.5px solid var(--navy);background:var(--navy);color:white;font-size:12px;font-weight:600;cursor:pointer">Todos ({{ quick_wins|length }})</button>
+  {% if finops_wins %}
+  <button class="filter-btn" onclick="filterQW('finops', this)" style="padding:5px 14px;border-radius:20px;border:1.5px solid var(--blue-card);background:transparent;color:var(--navy-mid);font-size:12px;font-weight:600;cursor:pointer">💰 FinOps ({{ finops_wins|length }})</button>
+  {% endif %}
+  {% if sec_wins %}
+  <button class="filter-btn" onclick="filterQW('security', this)" style="padding:5px 14px;border-radius:20px;border:1.5px solid var(--blue-card);background:transparent;color:var(--navy-mid);font-size:12px;font-weight:600;cursor:pointer">🔒 Segurança ({{ sec_wins|length }})</button>
+  {% endif %}
+  <span style="width:1px;background:var(--blue-card);margin:0 4px;align-self:stretch"></span>
+  <button class="filter-btn" onclick="filterQW('low', this)" style="padding:5px 14px;border-radius:20px;border:1.5px solid rgba(56,161,105,0.4);background:rgba(56,161,105,0.06);color:var(--low);font-size:12px;font-weight:600;cursor:pointer">✅ Baixo Risco</button>
+  <button class="filter-btn" onclick="filterQW('medium', this)" style="padding:5px 14px;border-radius:20px;border:1.5px solid rgba(214,158,46,0.4);background:rgba(214,158,46,0.06);color:var(--medium);font-size:12px;font-weight:600;cursor:pointer">⚠️ Médio Risco</button>
+  <button class="filter-btn" onclick="filterQW('high', this)" style="padding:5px 14px;border-radius:20px;border:1.5px solid rgba(229,62,62,0.4);background:rgba(229,62,62,0.06);color:var(--critical);font-size:12px;font-weight:600;cursor:pointer">🔴 Alto Risco</button>
+</div>
+
+<div id="no-results" style="display:none;text-align:center;padding:32px;color:var(--text-light);font-size:14px">
+  Nenhum item corresponde ao filtro selecionado.
+</div>
+
+<!-- FinOps wins -->
+{% if finops_wins %}
+<div class="qw-section" data-section="finops">
+  <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:12px;display:flex;align-items:center;gap:8px">
+    <span style="background:rgba(255,103,154,0.1);color:var(--pink);padding:4px 12px;border-radius:6px;font-size:12px">💰 FinOps</span>
+    <span style="color:var(--text-light)">— {{ finops_wins|length }} ações</span>
+  </div>
+  {% for qw in finops_wins | sort(attribute='estimated_savings_monthly', reverse=True) %}
+  <div class="action-card qw-card" data-area="finops" data-risk="{{ qw.risk or 'low' }}">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px">
+      <div style="flex:1">
+        <div class="action-card-title">{{ qw.title }}</div>
+        <div class="action-meta">
+          <span class="tag">⏱️ {{ qw.effort_hours or '?' }}h</span>
+          <span class="tag">{{ (qw.category or 'geral')|title }}</span>
+          <span class="sev sev-{% if qw.risk == 'high' %}critical{% elif qw.risk == 'medium' %}medium{% else %}low{% endif %}">risco {{ qw.risk or 'baixo' }}</span>
+          {% if qw.account_id %}
+          <span class="tag" style="font-family:monospace;font-size:10px;color:var(--navy-mid)">🏦 {{ qw.account_id }}</span>
+          {% endif %}
+        </div>
+      </div>
+      {% if qw.estimated_savings_monthly %}
+      <div style="text-align:right;flex-shrink:0;background:rgba(56,161,105,0.08);border-radius:8px;padding:8px 12px">
+        <div style="color:var(--low);font-weight:700;font-size:16px">${{ "%.0f"|format(qw.estimated_savings_monthly) }}/mês</div>
+        <div style="font-size:10px;color:var(--text-light)">${{ "%.0f"|format(qw.estimated_savings_monthly * 12) }}/ano</div>
+      </div>
+      {% endif %}
+    </div>
+    <p style="font-size:13px;color:var(--text-light);line-height:1.6;margin-bottom:8px">{{ qw.description }}</p>
+    {% if qw.steps %}
+    <ol class="action-steps">{% for s in qw.steps %}<li>{{ s }}</li>{% endfor %}</ol>
+    {% endif %}
+    {% if qw.aws_cli_command %}
+    <div class="action-cli">$ {{ qw.aws_cli_command }}</div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Security wins -->
+{% if sec_wins %}
+<div class="qw-section" data-section="security" style="margin-top:{% if finops_wins %}24px{% else %}0{% endif %}">
+  <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:12px;display:flex;align-items:center;gap:8px">
+    <span style="background:rgba(11,25,86,0.08);color:var(--navy);padding:4px 12px;border-radius:6px;font-size:12px">🔒 Segurança</span>
+    <span style="color:var(--text-light)">— {{ sec_wins|length }} ações</span>
+  </div>
+  {% for qw in sec_wins %}
+  <div class="action-card qw-card" data-area="security" data-risk="{{ qw.risk or qw.severity or 'medium' }}">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px">
+      <div>
+        <div class="action-card-title">{{ qw.title }}</div>
+        <div class="action-meta">
+          <span class="sev sev-{% if (qw.risk or qw.severity) == 'high' %}critical{% elif (qw.risk or qw.severity) == 'medium' %}medium{% else %}low{% endif %}">{{ qw.severity or qw.risk or 'medium' }}</span>
+          <span class="tag">⏱️ {{ qw.effort_hours or '?' }}h</span>
+          {% if qw.account_id %}
+          <span class="tag" style="font-family:monospace;font-size:10px;color:var(--navy-mid)">🏦 {{ qw.account_id }}</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <p style="font-size:13px;color:var(--text-light);line-height:1.6;margin-bottom:8px">{{ qw.description }}</p>
+    {% if qw.steps %}
+    <ol class="action-steps">{% for s in qw.steps %}<li>{{ s }}</li>{% endfor %}</ol>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function filterQW(type, btn) {
+  // Update button styles
+  document.querySelectorAll('.filter-btn').forEach(b => {
+    b.style.background = 'transparent';
+    b.style.color = 'var(--navy-mid)';
+    b.style.borderColor = 'var(--blue-card)';
+    b.classList.remove('active');
+  });
+
+  if (type === 'all') {
+    btn.style.background = 'var(--navy)';
+    btn.style.color = 'white';
+    btn.style.borderColor = 'var(--navy)';
+  } else if (type === 'finops') {
+    btn.style.background = 'rgba(255,103,154,0.12)';
+    btn.style.color = 'var(--pink)';
+    btn.style.borderColor = 'var(--pink)';
+  } else if (type === 'security') {
+    btn.style.background = 'rgba(11,25,86,0.1)';
+    btn.style.color = 'var(--navy)';
+    btn.style.borderColor = 'var(--navy)';
+  } else if (type === 'low') {
+    btn.style.background = 'rgba(56,161,105,0.12)';
+    btn.style.color = 'var(--low)';
+    btn.style.borderColor = 'var(--low)';
+  } else if (type === 'medium') {
+    btn.style.background = 'rgba(214,158,46,0.12)';
+    btn.style.color = 'var(--medium)';
+    btn.style.borderColor = 'var(--medium)';
+  } else if (type === 'high') {
+    btn.style.background = 'rgba(229,62,62,0.12)';
+    btn.style.color = 'var(--critical)';
+    btn.style.borderColor = 'var(--critical)';
+  }
+  btn.classList.add('active');
+
+  // Filter cards
+  let visible = 0;
+  document.querySelectorAll('.qw-card').forEach(card => {
+    const area = card.dataset.area;
+    const risk = card.dataset.risk;
+    let show = false;
+    if (type === 'all') show = true;
+    else if (type === 'finops') show = area === 'finops';
+    else if (type === 'security') show = area === 'security';
+    else show = risk === type;
+    card.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+
+  // Show/hide section headers
+  document.querySelectorAll('.qw-section').forEach(section => {
+    const sectionArea = section.dataset.section;
+    if (type === 'all' || type === sectionArea) {
+      section.style.display = '';
+    } else if (type === 'low' || type === 'medium' || type === 'high') {
+      // For risk filter, show section if it has visible cards
+      const hasVisible = [...section.querySelectorAll('.qw-card')].some(c => c.style.display !== 'none');
+      section.style.display = hasVisible ? '' : 'none';
+    } else {
+      section.style.display = 'none';
+    }
+  });
+
+  document.getElementById('no-results').style.display = visible === 0 ? 'block' : 'none';
+}
+</script>
+{% endblock %}

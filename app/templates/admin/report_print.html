@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Assessment — {{ client.company }}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --navy: #0B1956; --pink: #FF679A;
+      --low: #38A169; --medium: #D69E2E; --high: #DD6B20; --critical: #E53E3E;
+      --text: #1F2E47; --text-light: #6B7A8F; --border: #E8EDF5;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Poppins', sans-serif; color: var(--text); background: #fff; font-size: 13px; line-height: 1.5; }
+    a { color: inherit; text-decoration: none; }
+
+    /* Print actions bar — hidden on print */
+    .print-bar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: var(--navy); color: #fff; padding: 10px 32px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .print-bar .brand { font-weight: 700; font-size: 14px; }
+    .print-bar .actions { display: flex; gap: 10px; }
+    .btn-print {
+      background: var(--pink); color: #fff; border: none; border-radius: 8px;
+      padding: 7px 18px; font-size: 13px; font-weight: 600; cursor: pointer;
+      font-family: inherit;
+    }
+    .btn-close {
+      background: rgba(255,255,255,0.15); color: #fff; border: none; border-radius: 8px;
+      padding: 7px 14px; font-size: 13px; cursor: pointer; font-family: inherit;
+    }
+
+    /* Report body */
+    .report { max-width: 900px; margin: 0 auto; padding: 72px 40px 60px; }
+
+    /* Header */
+    .report-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid var(--navy); padding-bottom: 20px; margin-bottom: 28px; }
+    .report-header .logo-area { display: flex; align-items: center; gap: 12px; }
+    .report-header h1 { font-size: 22px; font-weight: 700; color: var(--navy); margin-bottom: 2px; }
+    .report-header .sub { font-size: 12px; color: var(--text-light); }
+    .report-meta { text-align: right; font-size: 12px; color: var(--text-light); }
+    .report-meta strong { color: var(--navy); font-size: 13px; }
+
+    /* Section */
+    .section { margin-bottom: 32px; }
+    .section-title { font-size: 14px; font-weight: 700; color: var(--navy); text-transform: uppercase; letter-spacing: .5px; border-bottom: 1.5px solid var(--border); padding-bottom: 6px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+
+    /* Metrics grid */
+    .metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+    .metric-box { border: 1.5px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+    .metric-label { font-size: 10px; font-weight: 600; color: var(--text-light); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 4px; }
+    .metric-value { font-size: 24px; font-weight: 700; color: var(--navy); }
+    .metric-sub { font-size: 11px; color: var(--text-light); margin-top: 2px; }
+
+    /* Score circle (small) */
+    .score { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 50%; font-weight: 700; font-size: 16px; border: 2.5px solid; }
+    .score.exc { border-color: var(--low); color: var(--low); }
+    .score.good { border-color: #3182CE; color: #3182CE; }
+    .score.fair { border-color: var(--medium); color: var(--medium); }
+    .score.poor { border-color: var(--high); color: var(--high); }
+    .score.crit { border-color: var(--critical); color: var(--critical); }
+
+    /* Summary box */
+    .summary-box { background: #F6F9FF; border-left: 3px solid var(--navy); border-radius: 0 8px 8px 0; padding: 14px 18px; font-size: 13px; line-height: 1.7; color: var(--text); }
+
+    /* Items list */
+    .item-row { border: 1.5px solid var(--border); border-radius: 8px; padding: 12px 16px; margin-bottom: 8px; page-break-inside: avoid; }
+    .item-title { font-weight: 600; font-size: 13px; color: var(--navy); margin-bottom: 4px; }
+    .item-desc { font-size: 12px; color: var(--text-light); line-height: 1.5; }
+    .item-meta { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+    .tag { display: inline-flex; padding: 2px 8px; border-radius: 5px; font-size: 10px; font-weight: 600; background: #EEF2F9; color: var(--navy); }
+    .tag-green { background: rgba(56,161,105,0.12); color: var(--low); }
+    .tag-red { background: rgba(229,62,62,0.1); color: var(--critical); }
+    .tag-orange { background: rgba(221,107,32,0.1); color: var(--high); }
+    .sev { display: inline-flex; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+    .sev-critical { background: rgba(229,62,62,0.1); color: var(--critical); }
+    .sev-high { background: rgba(221,107,32,0.1); color: var(--high); }
+    .sev-medium { background: rgba(214,158,46,0.1); color: var(--medium); }
+    .sev-low { background: rgba(56,161,105,0.1); color: var(--low); }
+
+    /* Table */
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; font-size: 10px; font-weight: 600; color: var(--text-light); text-transform: uppercase; border-bottom: 1.5px solid var(--border); padding: 6px 10px; }
+    td { padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 12px; color: var(--text); }
+
+    /* Findings summary */
+    .finding-counts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .finding-count-box { border-radius: 8px; padding: 10px 14px; text-align: center; }
+    .fc-critical { background: rgba(229,62,62,0.08); border: 1.5px solid rgba(229,62,62,0.2); }
+    .fc-high { background: rgba(221,107,32,0.08); border: 1.5px solid rgba(221,107,32,0.2); }
+    .fc-medium { background: rgba(214,158,46,0.08); border: 1.5px solid rgba(214,158,46,0.2); }
+    .fc-low { background: rgba(56,161,105,0.08); border: 1.5px solid rgba(56,161,105,0.2); }
+    .fc-n { font-size: 28px; font-weight: 700; }
+    .fc-label { font-size: 10px; font-weight: 600; text-transform: uppercase; margin-top: 2px; }
+
+    /* Footer */
+    .report-footer { margin-top: 40px; border-top: 1.5px solid var(--border); padding-top: 16px; display: flex; justify-content: space-between; font-size: 11px; color: var(--text-light); }
+
+    /* Print styles */
+    @media print {
+      .print-bar { display: none !important; }
+      .report { padding-top: 24px; }
+      body { font-size: 12px; }
+      .metrics-grid { grid-template-columns: repeat(4, 1fr); }
+    }
+    @page { margin: 18mm 14mm; }
+  </style>
+</head>
+<body>
+
+<!-- Print actions bar -->
+<div class="print-bar">
+  <span class="brand">Sentinela — Assessment {{ client.company }}</span>
+  <div class="actions">
+    <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+    <button class="btn-close" onclick="window.close()">✕ Fechar</button>
+  </div>
+</div>
+
+<div class="report">
+
+  <!-- Header -->
+  <div class="report-header">
+    <div>
+      <h1>AWS FinOps &amp; Security Assessment</h1>
+      <div class="sub">{{ client.company }} &nbsp;·&nbsp; {{ client.aws_account_id or 'Conta AWS' }}</div>
+    </div>
+    <div class="report-meta">
+      <div><strong>Data do relatório</strong></div>
+      <div>{{ report.completed_at.strftime('%d/%m/%Y') if report.completed_at else report.started_at.strftime('%d/%m/%Y') if report.started_at else '—' }}</div>
+      <div style="margin-top:6px"><strong>Gerado por</strong></div>
+      <div>Sentinela × Claude AI</div>
+    </div>
+  </div>
+
+  <!-- Key Metrics -->
+  <div class="section">
+    <div class="section-title">📊 Métricas Chave</div>
+
+    {% set cs = report.rightsizing_recommendations.cost_health_score if report.rightsizing_recommendations else 0 %}
+    {% set cl = report.rightsizing_recommendations.cost_health_label if report.rightsizing_recommendations else 'N/A' %}
+    {% set ss = [100 - (report.critical_findings or 0) * 20 - (report.high_findings or 0) * 10 - (report.medium_findings or 0) * 5, 0] | max %}
+
+    <div class="metrics-grid">
+      <div class="metric-box" style="border-left:3px solid var(--navy)">
+        <div class="metric-label">Score FinOps</div>
+        <div class="metric-value" style="color:{% if cs >= 70 %}var(--low){% elif cs >= 40 %}var(--medium){% else %}var(--critical){% endif %}">{{ cs }}</div>
+        <div class="metric-sub">{{ cl }}</div>
+      </div>
+      <div class="metric-box" style="border-left:3px solid {% if ss >= 70 %}var(--low){% elif ss >= 40 %}var(--medium){% else %}var(--critical){% endif %}">
+        <div class="metric-label">Score Segurança</div>
+        <div class="metric-value" style="color:{% if ss >= 70 %}var(--low){% elif ss >= 40 %}var(--medium){% else %}var(--critical){% endif %}">{{ ss }}</div>
+        <div class="metric-sub">{{ report.critical_findings or 0 }}C · {{ report.high_findings or 0 }}H · {{ report.medium_findings or 0 }}M</div>
+      </div>
+      <div class="metric-box" style="border-left:3px solid var(--pink)">
+        <div class="metric-label">Custo Mensal</div>
+        <div class="metric-value">${{ "%.0f"|format(report.monthly_cost or 0) }}</div>
+        <div class="metric-sub">run rate estimado</div>
+      </div>
+      <div class="metric-box" style="border-left:3px solid var(--low)">
+        <div class="metric-label">Economia Potencial</div>
+        <div class="metric-value" style="color:var(--low)">${{ "%.0f"|format(report.potential_savings or 0) }}</div>
+        <div class="metric-sub">{{ "%.1f"|format(report.savings_percentage or 0) }}% do custo atual / mês</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Executive Summary -->
+  {% if report.finops_summary %}
+  <div class="section">
+    <div class="section-title">📝 Sumário Executivo — FinOps</div>
+    <div class="summary-box">{{ report.finops_summary }}</div>
+  </div>
+  {% endif %}
+
+  {% if report.security_summary %}
+  <div class="section">
+    <div class="section-title">🔒 Sumário Executivo — Segurança</div>
+    <div class="summary-box" style="border-left-color:var(--critical)">{{ report.security_summary }}</div>
+  </div>
+  {% endif %}
+
+  <!-- Top costs -->
+  {% if report.cost_by_service %}
+  <div class="section">
+    <div class="section-title">💰 Principais Serviços por Custo</div>
+    <table>
+      <thead><tr><th>#</th><th>Serviço</th><th>Custo Mensal</th><th>% do Total</th></tr></thead>
+      <tbody>
+        {% set total_cost = report.cost_by_service | sum(attribute='cost', start=0) %}
+        {% for svc in report.cost_by_service[:10] %}
+        <tr>
+          <td style="color:var(--text-light)">{{ loop.index }}</td>
+          <td>{{ svc.service }}</td>
+          <td style="font-weight:600">${{ "%.2f"|format(svc.cost) }}</td>
+          <td>
+            {% if total_cost > 0 %}
+            {{ "%.1f"|format(svc.cost / total_cost * 100) }}%
+            {% else %}—{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <!-- Quick Wins -->
+  {% set all_qw = report.quick_wins or [] %}
+  {% if all_qw %}
+  <div class="section">
+    <div class="section-title">⚡ Quick Wins ({{ all_qw|length }} itens)</div>
+    {% set finops_qw = all_qw | selectattr('area', '!=', 'security') | list %}
+    {% set sec_qw    = all_qw | selectattr('area', 'equalto', 'security') | list %}
+
+    {% if finops_qw %}
+    <div style="font-size:11px;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">FinOps</div>
+    {% for qw in finops_qw | sort(attribute='estimated_savings_monthly', reverse=True) %}
+    <div class="item-row">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+        <div style="flex:1">
+          <div class="item-title">{{ qw.title }}</div>
+          <div class="item-desc">{{ qw.description }}</div>
+          <div class="item-meta">
+            {% if qw.category %}<span class="tag">📁 {{ qw.category|title }}</span>{% endif %}
+            {% if qw.effort_hours %}<span class="tag">⏱️ ~{{ qw.effort_hours }}h</span>{% endif %}
+            {% if qw.risk %}<span class="sev sev-{% if qw.risk == 'high' %}critical{% elif qw.risk == 'medium' %}medium{% else %}low{% endif %}">Risco {{ qw.risk }}</span>{% endif %}
+          </div>
+        </div>
+        {% if qw.estimated_savings_monthly %}
+        <div style="text-align:right;flex-shrink:0">
+          <div style="color:var(--low);font-weight:700;font-size:15px">${{ "%.0f"|format(qw.estimated_savings_monthly) }}/mês</div>
+          <div style="font-size:11px;color:var(--text-light)">${{ "%.0f"|format(qw.estimated_savings_monthly * 12) }}/ano</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if sec_qw %}
+    <div style="font-size:11px;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:.4px;margin:16px 0 8px">Segurança</div>
+    {% for qw in sec_qw %}
+    <div class="item-row">
+      <div class="item-title">{{ qw.title }}</div>
+      <div class="item-desc">{{ qw.description }}</div>
+      <div class="item-meta">
+        {% if qw.severity %}<span class="sev sev-{{ qw.severity }}">{{ qw.severity }}</span>{% endif %}
+        {% if qw.effort_hours %}<span class="tag">⏱️ ~{{ qw.effort_hours }}h</span>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Projects -->
+  {% set all_proj = report.projects or [] %}
+  {% if all_proj %}
+  <div class="section">
+    <div class="section-title">🗂️ Projetos Estratégicos ({{ all_proj|length }} itens)</div>
+    {% set finops_proj = all_proj | selectattr('area', '!=', 'security') | list %}
+    {% set sec_proj    = all_proj | selectattr('area', 'equalto', 'security') | list %}
+
+    {% if finops_proj %}
+    <div style="font-size:11px;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">FinOps</div>
+    {% for proj in finops_proj | sort(attribute='estimated_savings_monthly', reverse=True) %}
+    <div class="item-row">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+        <div style="flex:1">
+          <div class="item-title">{{ proj.title }}</div>
+          <div class="item-desc">{{ proj.description }}</div>
+          <div class="item-meta">
+            {% if proj.category %}<span class="tag">📁 {{ proj.category|title }}</span>{% endif %}
+            {% if proj.effort_weeks %}<span class="tag">📅 ~{{ proj.effort_weeks }} semanas</span>{% endif %}
+          </div>
+        </div>
+        {% if proj.estimated_savings_monthly %}
+        <div style="text-align:right;flex-shrink:0">
+          <div style="color:var(--low);font-weight:700;font-size:15px">${{ "%.0f"|format(proj.estimated_savings_monthly) }}/mês</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if sec_proj %}
+    <div style="font-size:11px;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:.4px;margin:16px 0 8px">Segurança</div>
+    {% for proj in sec_proj %}
+    <div class="item-row">
+      <div class="item-title">{{ proj.title }}</div>
+      <div class="item-desc">{{ proj.description }}</div>
+      <div class="item-meta">
+        {% if proj.severity %}<span class="sev sev-{{ proj.severity }}">{{ proj.severity }}</span>{% endif %}
+        {% if proj.effort_weeks %}<span class="tag">📅 ~{{ proj.effort_weeks }} semanas</span>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Security Findings Summary -->
+  {% if report.critical_findings is not none %}
+  <div class="section">
+    <div class="section-title">🔍 Resumo de Findings de Segurança</div>
+    <div class="finding-counts">
+      <div class="finding-count-box fc-critical">
+        <div class="fc-n" style="color:var(--critical)">{{ report.critical_findings or 0 }}</div>
+        <div class="fc-label" style="color:var(--critical)">Crítico</div>
+      </div>
+      <div class="finding-count-box fc-high">
+        <div class="fc-n" style="color:var(--high)">{{ report.high_findings or 0 }}</div>
+        <div class="fc-label" style="color:var(--high)">Alto</div>
+      </div>
+      <div class="finding-count-box fc-medium">
+        <div class="fc-n" style="color:var(--medium)">{{ report.medium_findings or 0 }}</div>
+        <div class="fc-label" style="color:var(--medium)">Médio</div>
+      </div>
+      <div class="finding-count-box fc-low">
+        <div class="fc-n" style="color:var(--low)">{{ report.low_findings or 0 }}</div>
+        <div class="fc-label" style="color:var(--low)">Baixo</div>
+      </div>
+    </div>
+
+    <!-- IAM key findings -->
+    {% if report.iam_findings %}
+    {% set iam = report.iam_findings %}
+    <div style="margin-top:16px">
+      <div style="font-size:11px;font-weight:700;color:var(--text-light);text-transform:uppercase;margin-bottom:8px">IAM</div>
+      <table>
+        <thead><tr><th>Finding</th><th>Valor</th></tr></thead>
+        <tbody>
+          {% if iam.root_mfa_enabled is not none %}
+          <tr>
+            <td>Root MFA</td>
+            <td>{% if iam.root_mfa_enabled %}<span class="tag tag-green">Ativo</span>{% else %}<span class="tag tag-red">Ausente</span>{% endif %}</td>
+          </tr>
+          {% endif %}
+          {% if iam.access_keys_old %}
+          <tr><td>Chaves IAM antigas (&gt;90 dias)</td><td><span class="tag tag-red">{{ iam.access_keys_old|length }} chave(s)</span></td></tr>
+          {% endif %}
+          {% if iam.users_no_mfa %}
+          <tr><td>Usuários sem MFA</td><td><span class="tag tag-orange">{{ iam.users_no_mfa|length }} usuário(s)</span></td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    <!-- S3 key findings -->
+    {% if report.s3_findings and report.s3_findings.security %}
+    {% set s3sec = report.s3_findings.security %}
+    <div style="margin-top:16px">
+      <div style="font-size:11px;font-weight:700;color:var(--text-light);text-transform:uppercase;margin-bottom:8px">S3</div>
+      <table>
+        <thead><tr><th>Finding</th><th>Valor</th></tr></thead>
+        <tbody>
+          {% if s3sec.public_buckets %}
+          <tr><td>Buckets públicos</td><td><span class="tag tag-red">{{ s3sec.public_buckets|length }}</span></td></tr>
+          {% endif %}
+          {% if s3sec.unencrypted_buckets %}
+          <tr><td>Buckets sem criptografia</td><td><span class="tag tag-orange">{{ s3sec.unencrypted_buckets|length }}</span></td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Footer -->
+  <div class="report-footer">
+    <span>Gerado por <strong>Sentinela</strong> com Claude AI &nbsp;·&nbsp; Análise de FinOps &amp; Segurança AWS</span>
+    <span>Relatório #{{ report.id }} &nbsp;·&nbsp; {{ report.completed_at.strftime('%d/%m/%Y %H:%M') if report.completed_at else '—' }}</span>
+  </div>
+
+</div>
+</body>
+</html>

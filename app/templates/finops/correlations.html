@@ -1,0 +1,433 @@
+{% extends "base.html" %}
+{% block title %}Correlações — {{ client.company }}{% endblock %}
+{% block topbar_title %}🔗 Mapa de Correlações — {{ client.company }}{% endblock %}
+
+{% block sidebar_nav %}
+<nav>
+  <div class="sidebar-section">Admin</div>
+  <a href="/admin"><span class="icon">🏠</span> Dashboard</a>
+  <a href="/admin/clients/{{ client.id }}"><span class="icon">👤</span> {{ client.company }}</a>
+  <div class="sidebar-section">FinOps</div>
+  <a href="/finops/{{ client.id }}"><span class="icon">📊</span> Visão Geral</a>
+  <a href="/finops/{{ client.id }}/quick-wins"><span class="icon">⚡</span> Quick Wins</a>
+  <a href="/finops/{{ client.id }}/projects"><span class="icon">🗂️</span> Projetos</a>
+  <a href="/finops/{{ client.id }}/unused-resources"><span class="icon">🗑️</span> Recursos Ociosos</a>
+  <a href="/finops/{{ client.id }}/correlations" class="active"><span class="icon">🔗</span> Mapa de Correlações</a>
+  <div class="sidebar-section">Segurança</div>
+  <a href="/security/{{ client.id }}"><span class="icon">🔒</span> Visão Geral</a>
+  <a href="/security/{{ client.id }}/quick-wins"><span class="icon">⚡</span> Quick Wins</a>
+  <a href="/security/{{ client.id }}/projects"><span class="icon">🗂️</span> Projetos</a>
+  <a href="/security/{{ client.id }}/findings"><span class="icon">🔍</span> Findings</a>
+  <div class="sidebar-section">Recursos</div>
+  <a href="/static/docs/cloud-sentinel-documentation.html" target="_blank"><span class="icon">📄</span> Documentação</a>
+</nav>
+{% endblock %}
+
+{% block topbar_right %}
+<a href="/admin/clients/{{ client.id }}" class="btn btn-outline btn-sm">← Admin</a>
+<a href="/security/{{ client.id }}" class="btn btn-navy btn-sm">🔒 Segurança</a>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+  .corr-layout { display: grid; grid-template-columns: 1fr 320px; gap: 20px; align-items: start; }
+  @media (max-width: 1100px) { .corr-layout { grid-template-columns: 1fr; } }
+
+  #corr-svg { width: 100%; display: block; background: var(--bg-hero); border-radius: 16px; border: 1.5px solid var(--blue-card); }
+
+  .corr-legend { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+  .corr-legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--text-light); }
+  .corr-legend-dot  { width: 12px; height: 12px; border-radius: 50%; }
+
+  .corr-sev-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+  .corr-sev-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .3px;
+  }
+
+  #corr-detail {
+    background: var(--white);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    padding: 20px;
+    min-height: 200px;
+  }
+  #corr-detail .placeholder {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; height: 200px;
+    color: var(--text-light); font-size: 13px; text-align: center; gap: 10px;
+  }
+
+  .corr-card {
+    background: var(--white); border-radius: 12px;
+    border: 1.5px solid var(--blue-card);
+    padding: 16px 18px; margin-bottom: 10px;
+    cursor: pointer; transition: box-shadow .2s, border-color .2s;
+  }
+  .corr-card:hover { box-shadow: var(--shadow-md); border-color: var(--pink); }
+  .corr-card.active { border-color: var(--pink); box-shadow: 0 0 0 3px rgba(255,103,154,0.15); }
+
+  .corr-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+  .corr-card-title  { font-size: 13px; font-weight: 700; color: var(--navy); line-height: 1.4; }
+  .corr-chain { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-light); margin-top: 6px; flex-wrap: wrap; }
+  .corr-node-pill {
+    padding: 3px 9px; border-radius: 6px; font-size: 11px; font-weight: 600;
+    background: var(--blue-card); color: var(--navy-mid);
+  }
+  .corr-node-pill.finops       { background: rgba(31,46,71,0.08);  color: var(--navy); }
+  .corr-node-pill.security     { background: rgba(229,62,62,0.10); color: var(--critical); }
+  .corr-node-pill.infrastructure { background: rgba(13,148,136,0.10); color: #0d9488; }
+
+  .corr-impact { font-size: 12px; color: #16a34a; font-weight: 600; margin-top: 6px; }
+
+  /* SVG node tooltip */
+  #corr-tooltip {
+    position: fixed; z-index: 200;
+    background: var(--navy); color: var(--white);
+    padding: 8px 12px; border-radius: 8px;
+    font-size: 12px; font-weight: 500;
+    pointer-events: none; display: none;
+    max-width: 220px; line-height: 1.5;
+    box-shadow: 0 8px 24px rgba(11,25,86,0.3);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+{% if not report %}
+<div class="empty-state card">
+  <div class="icon">🔗</div>
+  <h3>Nenhuma análise disponível</h3>
+  <p>Execute uma análise completa para visualizar as correlações FinOps × Segurança.</p>
+  <br>
+  <a href="/admin/clients/{{ client.id }}" class="btn btn-primary">← Voltar ao Cliente</a>
+</div>
+
+{% elif not correlations %}
+<div class="empty-state card">
+  <div class="icon">✅</div>
+  <h3>Nenhuma correlação de risco detectada</h3>
+  <p>A análise não identificou combinações críticas de custo + segurança nesta conta. Continue monitorando!</p>
+</div>
+
+{% else %}
+
+<!-- Summary bar -->
+<div class="corr-sev-bar" style="margin-bottom:20px">
+  {% set crit  = correlations | selectattr('severity','eq','critical') | list | length %}
+  {% set high  = correlations | selectattr('severity','eq','high')     | list | length %}
+  {% set med   = correlations | selectattr('severity','eq','medium')   | list | length %}
+  {% if crit %}<span class="corr-sev-pill" style="background:rgba(229,62,62,0.12);color:var(--critical)">🔴 {{ crit }} Crítica{{ 's' if crit > 1 }}</span>{% endif %}
+  {% if high %}<span class="corr-sev-pill" style="background:rgba(221,107,32,0.12);color:var(--high)">🟠 {{ high }} Alta{{ 's' if high > 1 }}</span>{% endif %}
+  {% if med  %}<span class="corr-sev-pill" style="background:rgba(214,158,46,0.12);color:var(--medium)">🟡 {{ med }} Média{{ 's' if med > 1 }}</span>{% endif %}
+  <span style="margin-left:auto;font-size:12px;color:var(--text-light)">Clique em um nó ou card para ver detalhes</span>
+</div>
+
+<div class="corr-layout">
+
+  <!-- Left: graph + legend + list -->
+  <div>
+    <!-- Legend -->
+    <div class="corr-legend" style="margin-bottom:12px">
+      <div class="corr-legend-item"><div class="corr-legend-dot" style="background:#EEF2F9;border:2px solid #1F2E47"></div> FinOps / Custo</div>
+      <div class="corr-legend-item"><div class="corr-legend-dot" style="background:rgba(229,62,62,0.12);border:2px solid #E53E3E"></div> Segurança</div>
+      <div class="corr-legend-item"><div class="corr-legend-dot" style="background:rgba(13,148,136,0.1);border:2px solid #0D9488"></div> Infraestrutura</div>
+      <div class="corr-legend-item" style="margin-left:12px">
+        <svg width="28" height="8"><line x1="0" y1="4" x2="28" y2="4" stroke="#E53E3E" stroke-width="2.5" stroke-dasharray="0"/></svg> Crítica
+      </div>
+      <div class="corr-legend-item">
+        <svg width="28" height="8"><line x1="0" y1="4" x2="28" y2="4" stroke="#DD6B20" stroke-width="2"/></svg> Alta
+      </div>
+      <div class="corr-legend-item">
+        <svg width="28" height="8"><line x1="0" y1="4" x2="28" y2="4" stroke="#D69E2E" stroke-width="1.5" stroke-dasharray="4,3"/></svg> Média
+      </div>
+    </div>
+
+    <!-- Graph -->
+    <div class="card" style="padding:16px;margin-bottom:20px">
+      <svg id="corr-svg" height="480">
+        <defs>
+          <marker id="arr-critical" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#E53E3E"/>
+          </marker>
+          <marker id="arr-high" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#DD6B20"/>
+          </marker>
+          <marker id="arr-medium" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#D69E2E"/>
+          </marker>
+          <marker id="arr-low" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#38A169"/>
+          </marker>
+        </defs>
+        <!-- rendered by JS -->
+      </svg>
+    </div>
+
+    <!-- Correlation list -->
+    <div class="card-title" style="margin-bottom:12px;font-size:14px">Correlações Detectadas</div>
+    {% for c in correlations %}
+    <div class="corr-card" id="card-{{ loop.index0 }}" onclick="selectCorr({{ loop.index0 }})">
+      <div class="corr-card-header">
+        <span class="corr-card-title">{{ c.title }}</span>
+        <span class="sev sev-{{ c.severity }}">{{ c.severity }}</span>
+      </div>
+      <div class="corr-chain">
+        <span class="corr-node-pill {{ c.source.category }}">{{ c.source.icon }} {{ c.source.label.split('\n')[0] }}</span>
+        <span style="color:var(--pink);font-weight:700">→</span>
+        <span class="corr-node-pill {{ c.target.category }}">{{ c.target.icon }} {{ c.target.label.split('\n')[0] }}</span>
+      </div>
+      {% if c.financial_impact > 0 %}
+      <div class="corr-impact">Impacto estimado: ${{ "%.0f"|format(c.financial_impact) }}/mês</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Right: detail panel -->
+  <div>
+    <div class="card-title" style="margin-bottom:12px;font-size:14px">Detalhes</div>
+    <div id="corr-detail">
+      <div class="placeholder">
+        <div style="font-size:32px">🔗</div>
+        <div>Clique em um nó do grafo<br>ou em um card para ver os detalhes.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div id="corr-tooltip"></div>
+
+<script>
+const _CORRS = {{ correlations | tojson }};
+
+/* ── Build unique node + link arrays ── */
+const nodeMap = {};
+const links   = [];
+
+_CORRS.forEach((c, ci) => {
+  [c.source, c.target].forEach(n => {
+    if (!nodeMap[n.id]) nodeMap[n.id] = { ...n, links: [] };
+    nodeMap[n.id].links.push(ci);
+  });
+  links.push({ source: c.source.id, target: c.target.id, severity: c.severity, corrIdx: ci });
+});
+
+const nodes = Object.values(nodeMap);
+
+/* ── Force simulation ── */
+const SVG = document.getElementById('corr-svg');
+let W = SVG.clientWidth || 700;
+const H = 480;
+
+// Place nodes in a circle initially
+nodes.forEach((n, i) => {
+  const angle = (i / nodes.length) * 2 * Math.PI - Math.PI / 2;
+  n.x = W / 2 + Math.cos(angle) * Math.min(W, H) * 0.32;
+  n.y = H / 2 + Math.sin(angle) * Math.min(W, H) * 0.28;
+  n.vx = 0; n.vy = 0;
+});
+
+function simulate(iters) {
+  for (let iter = 0; iter < iters; iter++) {
+    const alpha = Math.max(0.005, 1 - iter / (iters * 0.85));
+
+    // Repulsion
+    for (let a = 0; a < nodes.length; a++) {
+      for (let b = a + 1; b < nodes.length; b++) {
+        const na = nodes[a], nb = nodes[b];
+        const dx = nb.x - na.x || 0.1, dy = nb.y - na.y || 0.1;
+        const d2 = dx * dx + dy * dy;
+        const d  = Math.sqrt(d2) || 1;
+        const f  = Math.min(10000 / d2, 120) * alpha;
+        const fx = (dx / d) * f, fy = (dy / d) * f;
+        na.vx -= fx; na.vy -= fy;
+        nb.vx += fx; nb.vy += fy;
+      }
+    }
+
+    // Link attraction (target distance 170px)
+    links.forEach(lk => {
+      const s = nodes.find(n => n.id === lk.source);
+      const t = nodes.find(n => n.id === lk.target);
+      if (!s || !t) return;
+      const dx = t.x - s.x, dy = t.y - s.y;
+      const d  = Math.sqrt(dx * dx + dy * dy) || 1;
+      const f  = (d - 170) * 0.045 * alpha;
+      const fx = (dx / d) * f, fy = (dy / d) * f;
+      s.vx += fx; s.vy += fy;
+      t.vx -= fx; t.vy -= fy;
+    });
+
+    // Centering
+    nodes.forEach(n => {
+      n.vx += (W / 2 - n.x) * 0.006 * alpha;
+      n.vy += (H / 2 - n.y) * 0.006 * alpha;
+    });
+
+    // Integrate
+    nodes.forEach(n => {
+      n.x += n.vx; n.y += n.vy;
+      n.vx *= 0.68; n.vy *= 0.68;
+      n.x = Math.max(50, Math.min(W - 50, n.x));
+      n.y = Math.max(52, Math.min(H - 60, n.y));
+    });
+  }
+}
+
+simulate(280);
+
+/* ── Colors ── */
+function catBg(cat)     { return {finops:'#EEF2F9', security:'rgba(229,62,62,0.10)', infrastructure:'rgba(13,148,136,0.10)'}[cat] || '#F6F9FF'; }
+function catStroke(cat) { return {finops:'#1F2E47', security:'#E53E3E', infrastructure:'#0D9488'}[cat] || '#A9B8D3'; }
+function sevColor(sev)  { return {critical:'#E53E3E', high:'#DD6B20', medium:'#D69E2E', low:'#38A169'}[sev] || '#A9B8D3'; }
+function sevWidth(sev)  { return {critical:3, high:2.5, medium:2, low:1.5}[sev] || 2; }
+
+/* ── Draw ── */
+const ns = 'http://www.w3.org/2000/svg';
+let selectedCorr = -1;
+
+// Draw links
+const linkEls = links.map((lk, i) => {
+  const el = document.createElementNS(ns, 'path');
+  el.setAttribute('fill', 'none');
+  el.setAttribute('stroke', sevColor(lk.severity));
+  el.setAttribute('stroke-width', sevWidth(lk.severity));
+  el.setAttribute('stroke-opacity', '0.65');
+  el.setAttribute('marker-end', `url(#arr-${lk.severity})`);
+  if (lk.severity === 'medium') el.setAttribute('stroke-dasharray', '5,3');
+  el.style.cursor = 'pointer';
+  el.addEventListener('click', () => selectCorr(lk.corrIdx));
+  SVG.appendChild(el);
+  return el;
+});
+
+// Draw node groups
+const nodeEls = nodes.map((n, ni) => {
+  const g = document.createElementNS(ns, 'g');
+  g.style.cursor = 'pointer';
+
+  const circle = document.createElementNS(ns, 'circle');
+  circle.setAttribute('r', '30');
+  circle.setAttribute('fill', catBg(n.category));
+  circle.setAttribute('stroke', catStroke(n.category));
+  circle.setAttribute('stroke-width', '2');
+
+  const iconEl = document.createElementNS(ns, 'text');
+  iconEl.setAttribute('text-anchor', 'middle');
+  iconEl.setAttribute('dominant-baseline', 'central');
+  iconEl.setAttribute('font-size', '18');
+  iconEl.textContent = n.icon || '●';
+
+  const labelLines = (n.label || '').split('\n');
+  const labelEl = document.createElementNS(ns, 'text');
+  labelEl.setAttribute('text-anchor', 'middle');
+  labelEl.setAttribute('font-size', '10');
+  labelEl.setAttribute('font-family', 'Poppins, sans-serif');
+  labelEl.setAttribute('font-weight', '600');
+  labelEl.setAttribute('fill', '#1F2E47');
+  labelLines.forEach((line, idx) => {
+    const ts = document.createElementNS(ns, 'tspan');
+    ts.setAttribute('x', '0');
+    ts.setAttribute('dy', idx === 0 ? '38' : '12');
+    ts.textContent = line;
+    labelEl.appendChild(ts);
+  });
+
+  g.appendChild(circle);
+  g.appendChild(iconEl);
+  g.appendChild(labelEl);
+  SVG.appendChild(g);
+
+  const tooltip = document.getElementById('corr-tooltip');
+  g.addEventListener('mouseenter', e => {
+    tooltip.textContent = n.label.replace('\n', ' — ');
+    tooltip.style.display = 'block';
+  });
+  g.addEventListener('mousemove', e => {
+    tooltip.style.left = (e.clientX + 14) + 'px';
+    tooltip.style.top  = (e.clientY - 10) + 'px';
+  });
+  g.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+  g.addEventListener('click', () => {
+    // Show detail for first corr involving this node
+    const ci = n.links[0];
+    if (ci !== undefined) selectCorr(ci);
+  });
+
+  return { g, circle };
+});
+
+function drawGraph() {
+  const R = 30;
+  links.forEach((lk, i) => {
+    const s = nodes.find(n => n.id === lk.source);
+    const t = nodes.find(n => n.id === lk.target);
+    if (!s || !t) return;
+    const dx = t.x - s.x, dy = t.y - s.y;
+    const d  = Math.sqrt(dx * dx + dy * dy) || 1;
+    const sx = s.x + (dx / d) * (R + 2), sy = s.y + (dy / d) * (R + 2);
+    const tx = t.x - (dx / d) * (R + 10), ty = t.y - (dy / d) * (R + 10);
+    // Perpendicular curve control point
+    const cx = (sx + tx) / 2 - (dy / d) * 35;
+    const cy = (sy + ty) / 2 + (dx / d) * 35;
+    linkEls[i].setAttribute('d', `M ${sx},${sy} Q ${cx},${cy} ${tx},${ty}`);
+    // Dim if not selected
+    linkEls[i].setAttribute('stroke-opacity', selectedCorr === -1 || selectedCorr === lk.corrIdx ? '0.7' : '0.15');
+  });
+
+  nodes.forEach((n, i) => {
+    nodeEls[i].g.setAttribute('transform', `translate(${n.x},${n.y})`);
+    // Highlight if selected
+    const isActive = selectedCorr === -1 || n.links.includes(selectedCorr);
+    nodeEls[i].circle.setAttribute('opacity', isActive ? '1' : '0.35');
+    nodeEls[i].circle.setAttribute('stroke-width', n.links.includes(selectedCorr) ? '3' : '2');
+  });
+}
+
+drawGraph();
+
+/* ── Select correlation ── */
+function selectCorr(idx) {
+  selectedCorr = idx;
+  drawGraph();
+
+  // Highlight card
+  document.querySelectorAll('.corr-card').forEach((el, i) => {
+    el.classList.toggle('active', i === idx);
+  });
+
+  // Scroll card into view
+  const card = document.getElementById('card-' + idx);
+  if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  // Fill detail panel
+  const c = _CORRS[idx];
+  const sev_cls = {critical:'#E53E3E',high:'#DD6B20',medium:'#D69E2E',low:'#38A169'}[c.severity]||'#A9B8D3';
+  document.getElementById('corr-detail').innerHTML = `
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:12px">
+      <div style="font-weight:700;font-size:14px;color:var(--navy);line-height:1.4">${c.title}</div>
+      <span class="sev sev-${c.severity}" style="white-space:nowrap">${c.severity}</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+      <span class="corr-node-pill ${c.source.category}">${c.source.icon} ${c.source.label.replace(/\n/,' ')}</span>
+      <span style="color:var(--pink);font-size:18px;font-weight:700">→</span>
+      <span class="corr-node-pill ${c.target.category}">${c.target.icon} ${c.target.label.replace(/\n/,' ')}</span>
+    </div>
+    <div style="font-size:13px;color:var(--text-light);line-height:1.65;margin-bottom:14px">${c.description}</div>
+    <div style="background:var(--bg-hero);border-radius:8px;padding:12px;font-size:12.5px">
+      <strong style="color:var(--navy)">Recomendação:</strong><br>
+      <span style="color:var(--text-light)">${c.recommendation}</span>
+    </div>
+    ${c.financial_impact > 0
+      ? `<div style="margin-top:12px;padding:10px 12px;background:rgba(22,163,74,0.08);border-radius:8px;font-size:13px;font-weight:600;color:#16a34a">
+           💡 Impacto financeiro estimado: $${c.financial_impact.toFixed(0)}/mês
+         </div>`
+      : ''}
+  `;
+}
+</script>
+{% endif %}
+{% endblock %}

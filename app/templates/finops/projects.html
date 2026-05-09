@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+{% block title %}Projetos FinOps — {{ client.company }}{% endblock %}
+{% block topbar_title %}🗂️ Projetos — FinOps{% endblock %}
+
+{% block sidebar_nav %}
+<nav>
+  <div class="sidebar-section">Admin</div>
+  <a href="/admin"><span class="icon">🏠</span> Dashboard</a>
+  <a href="/admin/clients/{{ client.id }}"><span class="icon">👤</span> {{ client.company }}</a>
+  <div class="sidebar-section">FinOps</div>
+  <a href="/finops/{{ client.id }}"><span class="icon">📊</span> Visão Geral</a>
+  <a href="/finops/{{ client.id }}/quick-wins"><span class="icon">⚡</span> Quick Wins</a>
+  <a href="/finops/{{ client.id }}/projects" class="active"><span class="icon">🗂️</span> Projetos</a>
+  <a href="/finops/{{ client.id }}/unused-resources"><span class="icon">🗑️</span> Recursos Ociosos</a>
+  <a href="/finops/{{ client.id }}/correlations"><span class="icon">🔗</span> Mapa de Correlações</a>
+  <div class="sidebar-section">Segurança</div>
+  <a href="/security/{{ client.id }}"><span class="icon">🔒</span> Visão Geral</a>
+  <a href="/security/{{ client.id }}/quick-wins"><span class="icon">⚡</span> Quick Wins</a>
+  <a href="/security/{{ client.id }}/projects"><span class="icon">🗂️</span> Projetos</a>
+  <a href="/security/{{ client.id }}/findings"><span class="icon">🔍</span> Findings</a>
+  <div class="sidebar-section">Recursos</div>
+  <a href="/static/docs/cloud-sentinel-documentation.html" target="_blank"><span class="icon">📄</span> Documentação</a>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:20px">
+  <p style="font-size:13px;color:var(--text-light)">
+    Projetos são iniciativas estratégicas que requerem planejamento, testes e coordenação entre times.
+    Geralmente trazem economias maiores mas demandam semanas ou meses de trabalho.
+  </p>
+</div>
+
+{% if not projects %}
+<div class="empty-state card">
+  <div class="icon">🗂️</div>
+  <h3>Nenhum projeto identificado</h3>
+  <p>Inicie uma análise para identificar iniciativas estratégicas.</p>
+</div>
+{% else %}
+
+{% set ns = namespace(done=0, inprogress=0) %}
+{% for proj in projects %}
+  {% set entry = tracking.get(proj._orig_idx|string) or {} %}
+  {% if entry.get('status') == 'done' %}{% set ns.done = ns.done + 1 %}
+  {% elif entry.get('status') == 'in_progress' %}{% set ns.inprogress = ns.inprogress + 1 %}
+  {% endif %}
+{% endfor %}
+
+{% set total_savings = projects | sum(attribute='estimated_savings_monthly', start=0) %}
+<div class="stats-grid" style="margin-bottom:24px">
+  <div class="stat-card navy">
+    <span class="stat-label">Total de Projetos</span>
+    <span class="stat-value" id="stat-total">{{ projects|length }}</span>
+    <span class="stat-sub">Iniciativas identificadas</span>
+  </div>
+  <div class="stat-card green">
+    <span class="stat-label">Economia Total Potencial</span>
+    <span class="stat-value">${{ "%.0f"|format(total_savings) }}</span>
+    <span class="stat-sub">por mês (todos projetos)</span>
+  </div>
+  <div class="stat-card" style="border-left-color:var(--low)">
+    <span class="stat-label">Concluídos</span>
+    <span class="stat-value" id="stat-done" style="color:var(--low)">{{ ns.done }}</span>
+    <span class="stat-sub">de {{ projects|length }} projetos</span>
+  </div>
+  <div class="stat-card" style="border-left-color:#d97706">
+    <span class="stat-label">Em Andamento</span>
+    <span class="stat-value" id="stat-inprogress" style="color:#d97706">{{ ns.inprogress }}</span>
+    <span class="stat-sub">em execução</span>
+  </div>
+</div>
+
+{% for proj in projects | sort(attribute='estimated_savings_monthly', reverse=True) %}
+{% set entry = tracking.get(proj._orig_idx|string) or {} %}
+{% set item_status = entry.get('status') or 'pending' %}
+<div class="action-card" id="item-{{ proj._orig_idx }}" data-idx="{{ proj._orig_idx }}" data-type="projects"
+  style="{% if proj.hidden %}background:#f9fafb;border:1.5px dashed #cbd5e0{% else %}border-left: 4px solid {% if item_status == 'done' %}var(--low){% elif item_status == 'in_progress' %}#d97706{% else %}var(--navy){% endif %};{% if item_status == 'done' %}opacity:0.6{% endif %}{% endif %}">
+  <div class="action-card-header">
+    <div style="flex:1">
+      <div class="action-card-title" data-field="title" style="{% if proj.hidden %}color:var(--text-light){% endif %}">{{ proj.title }}</div>
+      <div class="action-meta" style="margin-top:6px">
+        <span class="tag">📁 {{ (proj.category or 'geral')|title }}</span>
+        <span class="tag">📅 ~{{ proj.effort_weeks or '?' }} semanas</span>
+        <span class="sev sev-{% if proj.risk == 'high' %}critical{% elif proj.risk == 'medium' %}medium{% else %}low{% endif %}">
+          Risco: {{ proj.risk or 'N/A' }}
+        </span>
+        <span class="status-pill" data-idx="{{ proj._orig_idx }}" data-type="projects" data-status="{{ item_status }}"
+          onclick="cycleStatus(this)"
+          style="cursor:pointer;display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;user-select:none;
+          {% if item_status == 'done' %}background:rgba(56,161,105,0.15);color:var(--low){% elif item_status == 'in_progress' %}background:rgba(217,119,6,0.15);color:#d97706{% else %}background:var(--blue-card);color:var(--text-light){% endif %}">
+          {% if item_status == 'done' %}✅ Concluído{% elif item_status == 'in_progress' %}🔄 Em andamento{% else %}⏳ Pendente{% endif %}
+        </span>
+        {% if proj.hidden %}
+        <span class="hidden-badge" style="background:rgba(107,114,143,0.15);color:var(--text-light);padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700">🚫 OCULTO DO PORTAL</span>
+        {% endif %}
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0">
+      {% if proj.estimated_savings_monthly %}
+      <div style="text-align:right">
+        <div style="color:var(--low);font-weight:700;font-size:18px">${{ "%.0f"|format(proj.estimated_savings_monthly) }}/mês</div>
+        <div style="font-size:11px;color:var(--text-light)">${{ "%.0f"|format(proj.estimated_savings_monthly * 12) }}/ano</div>
+      </div>
+      {% endif %}
+      <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+        <button class="btn btn-outline btn-sm toggle-hidden-btn" onclick="toggleHidden({{ proj._orig_idx }}, 'projects', {{ 'true' if proj.hidden else 'false' }})"
+          style="font-size:11px;padding:3px 10px;{% if proj.hidden %}border-color:var(--low);color:var(--low){% else %}border-color:var(--text-light);color:var(--text-light){% endif %}">
+          {% if proj.hidden %}👁 Mostrar{% else %}🚫 Ocultar{% endif %}
+        </button>
+        <button class="btn btn-outline btn-sm" onclick="openEdit({{ proj._orig_idx }}, 'projects', this)" style="font-size:11px;padding:3px 10px">✏️ Editar</button>
+        <button class="btn btn-outline btn-sm" onclick="deleteItem({{ proj._orig_idx }}, 'projects', this)" style="font-size:11px;padding:3px 10px;border-color:var(--critical);color:var(--critical)">🗑 Excluir</button>
+      </div>
+    </div>
+  </div>
+
+  <p style="font-size:13px;color:var(--text-light);line-height:1.6;margin-bottom:10px" data-field="description">{{ proj.description }}</p>
+
+  {% if proj.business_value %}
+  <div style="background:var(--bg-hero);border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12.5px">
+    <strong>Valor de negócio:</strong> {{ proj.business_value }}
+  </div>
+  {% endif %}
+
+  {% if proj.steps %}
+  <div>
+    <p style="font-size:12px;font-weight:600;color:var(--navy);margin-bottom:4px">Roadmap:</p>
+    <ol class="action-steps">
+      {% for step in proj.steps %}<li>{{ step }}</li>{% endfor %}
+    </ol>
+  </div>
+  {% endif %}
+</div>
+{% endfor %}
+{% endif %}
+
+<!-- Edit Modal -->
+<div id="edit-modal" style="display:none;position:fixed;inset:0;background:rgba(11,25,86,0.5);z-index:9000;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:16px;padding:28px;width:540px;max-width:90vw;box-shadow:0 16px 48px rgba(0,0,0,0.2)">
+    <h3 style="font-size:16px;font-weight:600;color:var(--navy);margin-bottom:20px">✏️ Editar Projeto</h3>
+    <div style="margin-bottom:14px">
+      <label style="font-size:12px;font-weight:600;color:var(--text-light);display:block;margin-bottom:4px">Título</label>
+      <input id="edit-title" type="text" class="form-input" style="width:100%" />
+    </div>
+    <div style="margin-bottom:20px">
+      <label style="font-size:12px;font-weight:600;color:var(--text-light);display:block;margin-bottom:4px">Descrição</label>
+      <textarea id="edit-desc" class="form-input" rows="4" style="width:100%;resize:vertical"></textarea>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-outline btn-sm" onclick="closeEdit()">Cancelar</button>
+      <button class="btn btn-primary btn-sm" onclick="saveEdit()">Salvar</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const REPORT_ID = {{ report.id if report else 'null' }};
+const STATUS_CYCLE  = ['pending', 'in_progress', 'done'];
+const STATUS_LABELS = {pending: '⏳ Pendente', in_progress: '🔄 Em andamento', done: '✅ Concluído'};
+
+async function cycleStatus(el) {
+  if (!REPORT_ID) return;
+  const idx  = parseInt(el.dataset.idx);
+  const type = el.dataset.type;
+  const cur  = el.dataset.status;
+  const next = STATUS_CYCLE[(STATUS_CYCLE.indexOf(cur) + 1) % STATUS_CYCLE.length];
+
+  const res = await fetch(`/admin/reports/${REPORT_ID}/track`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({type, index: idx, status: next})
+  });
+  if (!res.ok) return;
+
+  el.dataset.status = next;
+  el.textContent = STATUS_LABELS[next];
+  el.style.cssText = el.style.cssText.replace(/background:[^;]+;color:[^;"]+/, '') +
+    (next === 'done' ? ';background:rgba(56,161,105,0.15);color:var(--low)' :
+     next === 'in_progress' ? ';background:rgba(217,119,6,0.15);color:#d97706' :
+     ';background:var(--blue-card);color:var(--text-light)');
+
+  const card = document.getElementById(`item-${idx}`);
+  if (card) {
+    card.style.opacity = next === 'done' ? '0.6' : '1';
+    card.style.borderLeftColor = next === 'done' ? 'var(--low)' : next === 'in_progress' ? '#d97706' : 'var(--navy)';
+  }
+  refreshStats();
+}
+
+function refreshStats() {
+  const cards = document.querySelectorAll('[data-idx]');
+  const pills  = document.querySelectorAll('.status-pill');
+  let done = 0, inprog = 0;
+  pills.forEach(p => {
+    if (p.dataset.status === 'done') done++;
+    else if (p.dataset.status === 'in_progress') inprog++;
+  });
+  const totalEl = document.getElementById('stat-total');
+  const doneEl  = document.getElementById('stat-done');
+  const inpEl   = document.getElementById('stat-inprogress');
+  if (totalEl) totalEl.textContent = cards.length;
+  if (doneEl)  doneEl.textContent  = done;
+  if (inpEl)   inpEl.textContent   = inprog;
+}
+
+let _editIdx = null, _editType = null;
+function openEdit(idx, type) {
+  _editIdx = idx; _editType = type;
+  const card = document.getElementById(`item-${idx}`);
+  document.getElementById('edit-title').value = card.querySelector('[data-field="title"]').textContent.trim();
+  document.getElementById('edit-desc').value  = card.querySelector('[data-field="description"]').textContent.trim();
+  document.getElementById('edit-modal').style.display = 'flex';
+}
+async function saveEdit() {
+  const title = document.getElementById('edit-title').value.trim();
+  const desc  = document.getElementById('edit-desc').value.trim();
+  if (!title) return;
+  const res = await fetch(`/admin/reports/${REPORT_ID}/items/update`, {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({type: _editType, index: _editIdx, updates: {title, description: desc}})
+  });
+  if (!res.ok) return;
+  const card = document.getElementById(`item-${_editIdx}`);
+  card.querySelector('[data-field="title"]').textContent       = title;
+  card.querySelector('[data-field="description"]').textContent = desc;
+  closeEdit();
+}
+function closeEdit() {
+  document.getElementById('edit-modal').style.display = 'none';
+  _editIdx = null; _editType = null;
+}
+document.getElementById('edit-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeEdit(); });
+
+async function toggleHidden(idx, type, currentlyHidden) {
+  const newHidden = !currentlyHidden;
+  const res = await fetch(`/admin/reports/${REPORT_ID}/items/update`, {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({type, index: idx, updates: {hidden: newHidden}})
+  });
+  if (!res.ok) return;
+  const card = document.getElementById(`item-${idx}`);
+  const btn  = card.querySelector('.toggle-hidden-btn');
+  if (newHidden) {
+    card.style.background = '#f9fafb'; card.style.border = '1.5px dashed #cbd5e0'; card.style.borderLeft = '';
+    if (btn) { btn.textContent = '👁 Mostrar'; btn.style.borderColor = 'var(--low)'; btn.style.color = 'var(--low)'; btn.setAttribute('onclick', `toggleHidden(${idx}, '${type}', true)`); }
+    const meta = card.querySelector('.action-meta');
+    if (meta && !meta.querySelector('.hidden-badge')) {
+      const b = document.createElement('span'); b.className = 'hidden-badge';
+      b.setAttribute('style', 'background:rgba(107,114,143,0.15);color:var(--text-light);padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700');
+      b.textContent = '🚫 OCULTO DO PORTAL'; meta.appendChild(b);
+    }
+  } else {
+    card.style.background = ''; card.style.border = '';
+    if (btn) { btn.textContent = '🚫 Ocultar'; btn.style.borderColor = 'var(--text-light)'; btn.style.color = 'var(--text-light)'; btn.setAttribute('onclick', `toggleHidden(${idx}, '${type}', false)`); }
+    const hb = card.querySelector('.hidden-badge'); if (hb) hb.remove();
+  }
+}
+
+async function deleteItem(idx, type) {
+  if (!confirm('Excluir este projeto? Esta ação não pode ser desfeita.')) return;
+  const res = await fetch(`/admin/reports/${REPORT_ID}/items/delete`, {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({type, index: idx})
+  });
+  if (!res.ok) return;
+  const card = document.getElementById(`item-${idx}`);
+  if (card) card.remove();
+  refreshStats();
+}
+</script>
+{% endblock %}

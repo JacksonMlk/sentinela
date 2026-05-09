@@ -1,0 +1,332 @@
+{% extends "base.html" %}
+{% block title %}Findings — {{ client.company }}{% endblock %}
+{% block topbar_title %}🔍 Findings Detalhados{% endblock %}
+
+{% block sidebar_nav %}
+<nav>
+  <div class="sidebar-section">Admin</div>
+  <a href="/admin"><span class="icon">🏠</span> Dashboard</a>
+  <a href="/admin/clients/{{ client.id }}"><span class="icon">👤</span> {{ client.company }}</a>
+  <div class="sidebar-section">Segurança</div>
+  <a href="/security/{{ client.id }}"><span class="icon">🔒</span> Visão Geral</a>
+  <a href="/security/{{ client.id }}/quick-wins"><span class="icon">⚡</span> Quick Wins</a>
+  <a href="/security/{{ client.id }}/projects"><span class="icon">🗂️</span> Projetos</a>
+  <a href="/security/{{ client.id }}/findings" class="active"><span class="icon">🔍</span> Findings</a>
+  <div class="sidebar-section">Recursos</div>
+  <a href="/static/docs/cloud-sentinel-documentation.html" target="_blank"><span class="icon">📄</span> Documentação</a>
+</nav>
+{% endblock %}
+
+{% block content %}
+{% if not findings %}
+<div class="empty-state card"><div class="icon">🔍</div><h3>Nenhum finding</h3><p>Inicie uma análise primeiro.</p></div>
+{% else %}
+
+{% set iam = findings.get('iam', {}) %}
+{% set s3 = findings.get('s3', {}) %}
+{% set net = findings.get('network', {}) %}
+{% set enc = findings.get('encryption', {}) %}
+{% set comp = findings.get('compliance', {}) %}
+
+<!-- Tabs -->
+<div class="tabs">
+  <span class="tab active" onclick="showTab('iam', this)">IAM</span>
+  <span class="tab" onclick="showTab('s3', this)">S3</span>
+  <span class="tab" onclick="showTab('network', this)">Rede</span>
+  <span class="tab" onclick="showTab('encryption', this)">Criptografia</span>
+  <span class="tab" onclick="showTab('compliance', this)">Compliance</span>
+</div>
+
+<!-- IAM Tab -->
+<div id="tab-iam">
+  {% if iam.users_without_mfa %}
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-header">
+      <span class="card-title">Usuários sem MFA</span>
+      <span class="sev sev-high">{{ iam.users_without_mfa|length }}</span>
+    </div>
+    {% for u in iam.users_without_mfa %}
+    <span class="tag" style="margin:3px">👤 {{ u }}</span>
+    {% endfor %}
+    <div class="action-cli" style="margin-top:12px"># Listar MFA devices de um usuário
+aws iam list-mfa-devices --user-name USERNAME</div>
+  </div>
+  {% endif %}
+
+  {% if iam.users_with_old_keys %}
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-header">
+      <span class="card-title">Chaves de Acesso Antigas (+90 dias)</span>
+      <span class="sev sev-medium">{{ iam.users_with_old_keys|length }}</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Usuário</th><th>Key ID</th><th>Idade</th></tr></thead>
+        <tbody>
+          {% for k in iam.users_with_old_keys %}
+          <tr>
+            <td>{{ k.user }}</td>
+            <td style="font-family:monospace;font-size:12px">{{ k.key_id }}</td>
+            <td><span class="sev sev-{% if k.age_days > 180 %}critical{% elif k.age_days > 90 %}high{% else %}medium{% endif %}">{{ k.age_days }} dias</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if iam.overprivileged_policies %}
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-header">
+      <span class="card-title">Policies com Permissão Total (*:*)</span>
+      <span class="sev sev-critical">{{ iam.overprivileged_policies|length }}</span>
+    </div>
+    {% for p in iam.overprivileged_policies %}
+    <div style="padding:8px 0;border-bottom:1px solid var(--blue-card)">
+      <div style="font-weight:500;font-size:13px">{{ p.policy_name }}</div>
+      <div style="font-family:monospace;font-size:11px;color:var(--text-light)">{{ p.policy_arn }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if not iam.root_mfa_enabled %}
+  <div class="alert alert-error">
+    <strong>CRÍTICO:</strong> MFA não está ativado para o usuário root. Ative imediatamente em IAM → Security Credentials.
+  </div>
+  {% endif %}
+
+  {% if iam.inactive_users %}
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-header">
+      <span class="card-title">Usuários Inativos (+90 dias)</span>
+      <span class="sev sev-low">{{ iam.inactive_users|length }}</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Usuário</th><th>Dias inativo</th></tr></thead>
+        <tbody>
+          {% for u in iam.inactive_users %}
+          <tr><td>{{ u.user }}</td><td>{{ u.days_inactive }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- S3 Tab -->
+<div id="tab-s3" style="display:none">
+  {% set s3sec = s3.get('security', {}) %}
+  {% if s3sec.get('public_buckets') %}
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-header">
+      <span class="card-title">Buckets S3 com Acesso Público</span>
+      <span class="sev sev-critical">{{ s3sec.public_buckets|length }}</span>
+    </div>
+    <div class="alert alert-error">⛔ Buckets públicos podem expor dados sensíveis na internet.</div>
+    {% for b in s3sec.public_buckets %}
+    <span class="tag" style="margin:3px">🪣 {{ b }}</span>
+    {% endfor %}
+    <div class="action-cli" style="margin-top:12px">aws s3api put-public-access-block \
+  --bucket BUCKET-NAME \
+  --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true</div>
+  </div>
+  {% endif %}
+
+  {% if s3sec.get('unencrypted_buckets') %}
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-header">
+      <span class="card-title">Buckets sem Criptografia em Repouso</span>
+      <span class="sev sev-high">{{ s3sec.unencrypted_buckets|length }}</span>
+    </div>
+    {% for b in s3sec.unencrypted_buckets %}
+    <span class="tag" style="margin:3px">🪣 {{ b }}</span>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+
+<!-- Network Tab -->
+<div id="tab-network" style="display:none">
+  {% if net.get('open_security_groups') %}
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-header">
+      <span class="card-title">Security Groups com Portas Sensíveis Abertas (0.0.0.0/0)</span>
+      <span class="sev sev-critical">{{ net.open_security_groups|length }}</span>
+    </div>
+    <div class="alert alert-error" style="margin-bottom:12px">⛔ Estes Security Groups permitem acesso irrestrito da internet (0.0.0.0/0) em portas sensíveis.</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>SG ID</th><th>Nome</th><th>Porta</th><th>Região</th><th>VPC</th><th>Recursos Anexados</th></tr></thead>
+        <tbody>
+          {% for sg in net.open_security_groups %}
+          <tr>
+            <td style="font-family:monospace;font-size:11px">{{ sg.sg_id }}</td>
+            <td style="font-weight:500">{{ sg.sg_name or '—' }}</td>
+            <td><span class="sev sev-critical">{{ sg.port if sg.port != 0 else 'ALL' }}</span></td>
+            <td><span class="tag">{{ sg.region }}</span></td>
+            <td style="font-family:monospace;font-size:11px;color:var(--text-light)">{{ sg.vpc_id or '—' }}</td>
+            <td>
+              {% if sg.get('sg_resources') %}
+                {% for res in sg.sg_resources %}
+                  <span class="tag" style="margin:2px;display:inline-block">{{ res }}</span>
+                {% endfor %}
+              {% else %}
+                <span style="color:var(--text-light);font-size:12px">Nenhum recurso</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="action-cli" style="margin-top:12px"># Revogar regra de ingresso insegura
+aws ec2 revoke-security-group-ingress \
+  --group-id sg-XXXXXXXX \
+  --protocol tcp --port 22 \
+  --cidr 0.0.0.0/0 \
+  --region us-east-1</div>
+  </div>
+  {% endif %}
+
+  {% if net.get('vpcs_without_flow_logs') %}
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-header">
+      <span class="card-title">VPCs sem Flow Logs</span>
+      <span class="sev sev-medium">{{ net.vpcs_without_flow_logs|length }}</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>VPC ID</th><th>Região</th><th>Default</th></tr></thead>
+        <tbody>
+          {% for v in net.vpcs_without_flow_logs %}
+          <tr>
+            <td style="font-family:monospace;font-size:12px">{{ v.vpc_id }}</td>
+            <td><span class="tag">{{ v.region }}</span></td>
+            <td>{% if v.is_default %}<span class="badge badge-navy">Default</span>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if net.get('regions_without_guardduty') %}
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-header">
+      <span class="card-title">Regiões sem GuardDuty</span>
+      <span class="sev sev-high">{{ net.regions_without_guardduty|length }}</span>
+    </div>
+    {% for r in net.regions_without_guardduty %}
+    <span class="tag" style="margin:3px">🌎 {{ r }}</span>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+
+<!-- Encryption Tab -->
+<div id="tab-encryption" style="display:none">
+  {% if enc.get('unencrypted_ebs') %}
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-header">
+      <span class="card-title">Volumes EBS não Criptografados</span>
+      <span class="sev sev-medium">{{ enc.unencrypted_ebs|length }}</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Volume ID</th><th>Região</th><th>Tamanho</th><th>Estado</th></tr></thead>
+        <tbody>
+          {% for v in enc.unencrypted_ebs[:30] %}
+          <tr>
+            <td style="font-family:monospace;font-size:12px">{{ v.volume_id }}</td>
+            <td><span class="tag">{{ v.region }}</span></td>
+            <td>{{ v.size_gb }} GB</td>
+            <td>{{ v.state }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if enc.get('unencrypted_rds') %}
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-header">
+      <span class="card-title">Instâncias RDS não Criptografadas</span>
+      <span class="sev sev-high">{{ enc.unencrypted_rds|length }}</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>DB ID</th><th>Engine</th><th>Classe</th><th>Região</th></tr></thead>
+        <tbody>
+          {% for db in enc.unencrypted_rds %}
+          <tr>
+            <td style="font-weight:500">{{ db.db_id }}</td>
+            <td><span class="tag">{{ db.engine }}</span></td>
+            <td>{{ db.class }}</td>
+            <td><span class="tag">{{ db.region }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Compliance Tab -->
+<div id="tab-compliance" style="display:none">
+  {% if comp.get('security_hub') %}
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-header"><span class="card-title">Security Hub — Critical/High Findings</span></div>
+    {% for f in comp.security_hub %}
+    <div class="action-card" style="margin-bottom:8px">
+      <div class="action-card-header">
+        <span class="action-card-title">{{ f.title }}</span>
+        <span class="sev sev-{{ f.severity|lower if f.severity else 'medium' }}">{{ f.severity }}</span>
+      </div>
+      <p style="font-size:12.5px;color:var(--text-light)">{{ f.description }}</p>
+      <div style="font-size:11px;color:var(--blue-muted);margin-top:4px">Recurso: {{ f.resource_type }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if comp.get('config_rules_failing') %}
+  <div class="card">
+    <div class="card-header"><span class="card-title">AWS Config — Regras com Falha</span></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Regra</th><th>Recursos não conformes</th></tr></thead>
+        <tbody>
+          {% for r in comp.config_rules_failing %}
+          <tr>
+            <td>{{ r.rule }}</td>
+            <td><span class="sev sev-high">{{ r.non_compliant_resources }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function showTab(name, el) {
+  document.querySelectorAll('[id^="tab-"]').forEach(t => t.style.display = 'none');
+  document.getElementById('tab-' + name).style.display = 'block';
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+}
+</script>
+{% endblock %}

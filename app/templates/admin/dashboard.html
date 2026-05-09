@@ -1,0 +1,348 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard{% endblock %}
+{% block topbar_title %}Painel de Operações{% endblock %}
+
+{% block topbar_right %}
+<a href="/admin/clients/new" class="btn btn-primary btn-sm">➕ Novo Cliente</a>
+<a href="/admin/logout" class="btn btn-outline btn-sm" style="margin-left:4px">Sair</a>
+{% endblock %}
+
+{% block content %}
+
+<!-- Stats -->
+<div class="stats-grid">
+  <div class="stat-card navy">
+    <span class="stat-label">Clientes</span>
+    <span class="stat-value">{{ stats.total_clients }}</span>
+    <span class="stat-sub">{{ stats.active_clients }} ativos · {{ stats.clients_with_data }} com dados</span>
+  </div>
+  <div class="stat-card red">
+    <span class="stat-label">Com Findings Críticos</span>
+    <span class="stat-value">{{ stats.clients_with_critical }}</span>
+    <span class="stat-sub">Clientes com risco de segurança</span>
+  </div>
+  <div class="stat-card green">
+    <span class="stat-label">Economia Identificada</span>
+    <span class="stat-value">${{ "%.0f"|format(stats.total_savings) }}</span>
+    <span class="stat-sub">Potencial mensal no portfolio</span>
+  </div>
+  <div class="stat-card orange">
+    <span class="stat-label">Análises em Andamento</span>
+    <span class="stat-value">{{ stats.running_reports }}</span>
+    <span class="stat-sub">Executando agora</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-label">Total de Análises</span>
+    <span class="stat-value">{{ stats.total_reports }}</span>
+    <span class="stat-sub">Histórico completo</span>
+  </div>
+  <div class="stat-card {% if stats.alerts_count > 0 %}orange{% endif %}">
+    <span class="stat-label">Alertas Ativos</span>
+    <span class="stat-value">{{ stats.alerts_count }}</span>
+    <span class="stat-sub">Clientes precisando atenção</span>
+  </div>
+</div>
+
+<!-- Alertas do Portfolio -->
+{% if alerts %}
+<div class="card" style="margin-bottom:24px;border-left:3px solid #f87171">
+  <div class="card-header">
+    <span class="card-title" style="color:#dc2626">⚠ Alertas do Portfolio</span>
+    <span style="font-size:12px;color:var(--text-light)">{{ alerts|length }} item(s) precisando atenção</span>
+  </div>
+  <div style="padding:0 20px 16px">
+    {% for alert in alerts %}
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border-color);{% if loop.last %}border-bottom:none{% endif %}">
+      <span style="font-size:18px">
+        {% if alert.level == 'critical' %}🔴
+        {% elif alert.level == 'warning' %}🟡
+        {% elif alert.level == 'error' %}❌
+        {% else %}🔵{% endif %}
+      </span>
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:13px">{{ alert.client.company }}</div>
+        <div style="font-size:12px;color:var(--text-light)">{{ alert.message }}</div>
+      </div>
+      <a href="/admin/clients/{{ alert.client.id }}" class="btn btn-outline btn-sm">Ver</a>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Análises em Andamento -->
+{% if running_with_client %}
+<div class="card" style="margin-bottom:24px;border-left:3px solid #3b82f6">
+  <div class="card-header">
+    <span class="card-title" style="color:#1d4ed8">
+      <span class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:6px"></span>
+      Análises em Andamento
+    </span>
+  </div>
+  <div style="padding:0 20px 16px">
+    {% for item in running_with_client %}
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border-color);{% if loop.last %}border-bottom:none{% endif %}">
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:13px">{{ item.client.company if item.client else 'Cliente #' ~ item.report.client_id }}</div>
+        <div style="font-size:12px;color:var(--text-light)">Iniciado {{ item.report.started_at.strftime('%d/%m/%Y %H:%M') if item.report.started_at }}</div>
+      </div>
+      <a href="/admin/clients/{{ item.report.client_id }}" class="btn btn-outline btn-sm">Acompanhar</a>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Portfolio: Status por Cliente -->
+<div class="card" style="margin-bottom:24px">
+  <div class="card-header">
+    <span class="card-title">Portfolio de Clientes</span>
+    <a href="/admin/clients/new" class="btn btn-primary btn-sm">➕ Adicionar</a>
+  </div>
+
+  {% if client_status %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Cliente</th>
+          <th>Score FinOps</th>
+          <th>Score Segurança</th>
+          <th>Tendência de Custo</th>
+          <th>Custo Estimado</th>
+          <th>Economia Potencial</th>
+          <th>Última Análise</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for entry in client_status %}
+        {% set c = entry.client %}
+        {% set r = entry.report %}
+        <tr>
+          <!-- Cliente -->
+          <td>
+            <a href="/admin/clients/{{ c.id }}" style="font-weight:600;color:var(--navy)">{{ c.company }}</a>
+            <div style="font-size:11px;color:var(--text-light)">{{ c.email }}</div>
+          </td>
+
+          <!-- Score FinOps -->
+          <td>
+            {% if entry.cost_score is not none %}
+              {% set score = entry.cost_score %}
+              {% if score >= 70 %}
+                <span class="badge badge-green">{{ score }} · {{ entry.cost_label or 'Bom' }}</span>
+              {% elif score >= 40 %}
+                <span class="badge" style="background:#fef9c3;color:#854d0e;border:1px solid #fde047">{{ score }} · {{ entry.cost_label or 'Regular' }}</span>
+              {% else %}
+                <span class="badge badge-red">{{ score }} · {{ entry.cost_label or 'Crítico' }}</span>
+              {% endif %}
+            {% else %}
+              <span style="color:var(--text-light);font-size:12px">Sem dados</span>
+            {% endif %}
+          </td>
+
+          <!-- Score Segurança -->
+          <td>
+            {% if entry.security_score is not none %}
+              {% set sscore = entry.security_score %}
+              {% if sscore >= 70 %}
+                <span class="badge badge-green">{{ sscore }} · {{ entry.security_label or 'Bom' }}</span>
+              {% elif sscore >= 40 %}
+                <span class="badge" style="background:#fef9c3;color:#854d0e;border:1px solid #fde047">{{ sscore }} · {{ entry.security_label or 'Regular' }}</span>
+              {% else %}
+                <span class="badge badge-red">{{ sscore }} · {{ entry.security_label or 'Crítico' }}</span>
+              {% endif %}
+            {% else %}
+              <span style="color:var(--text-light);font-size:12px">Sem dados</span>
+            {% endif %}
+          </td>
+
+          <!-- Tendência -->
+          <td>
+            {% if entry.trend_direction %}
+              {% if entry.trend_direction == 'crescente' or entry.trend_status == 'alerta' %}
+                <span style="color:#dc2626;font-weight:600">
+                  ↑ Crescente
+                  {% if entry.trend_pct %}(+{{ "%.1f"|format(entry.trend_pct) }}%/mês){% endif %}
+                </span>
+              {% elif entry.trend_direction == 'decrescente' %}
+                <span style="color:#16a34a;font-weight:600">
+                  ↓ Decrescente
+                  {% if entry.trend_pct %}({{ "%.1f"|format(entry.trend_pct) }}%/mês){% endif %}
+                </span>
+              {% else %}
+                <span style="color:var(--text-light)">→ Estável</span>
+              {% endif %}
+            {% else %}
+              <span style="color:var(--text-light);font-size:12px">—</span>
+            {% endif %}
+          </td>
+
+          <!-- Custo Estimado -->
+          <td>
+            {% if entry.run_rate %}
+              <div style="font-weight:600">${{ "%.0f"|format(entry.run_rate) }}<span style="font-weight:400;font-size:11px">/mês</span></div>
+              <div style="font-size:11px;color:var(--text-light)">run rate atual</div>
+            {% elif entry.monthly_cost %}
+              <div style="font-weight:600">${{ "%.0f"|format(entry.monthly_cost) }}<span style="font-weight:400;font-size:11px">/mês</span></div>
+            {% else %}
+              <span style="color:var(--text-light);font-size:12px">—</span>
+            {% endif %}
+          </td>
+
+          <!-- Economia Potencial -->
+          <td>
+            {% if entry.potential_savings %}
+              <span style="color:#16a34a;font-weight:600">${{ "%.0f"|format(entry.potential_savings) }}/mês</span>
+            {% else %}
+              <span style="color:var(--text-light);font-size:12px">—</span>
+            {% endif %}
+          </td>
+
+          <!-- Última Análise -->
+          <td style="font-size:12px">
+            {% if r %}
+              <div>{{ r.started_at.strftime('%d/%m/%Y') if r.started_at }}</div>
+              {% if entry.days_since is not none %}
+                <div style="color:{% if entry.days_since > 30 %}#dc2626{% elif entry.days_since > 14 %}#d97706{% else %}var(--text-light){% endif %}">
+                  há {{ entry.days_since }} dias
+                </div>
+              {% endif %}
+            {% else %}
+              <span style="color:var(--text-light)">Nunca analisado</span>
+            {% endif %}
+          </td>
+
+          <!-- Ações -->
+          <td>
+            <a href="/admin/clients/{{ c.id }}" class="btn btn-outline btn-sm">Detalhes</a>
+            {% if r and r.status in ('completed', 'partial') %}
+            <a href="/finops/{{ c.id }}" class="btn btn-outline btn-sm" style="margin-top:2px">FinOps</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="icon">🏢</div>
+    <h3>Nenhum cliente ainda</h3>
+    <p>Adicione o primeiro cliente para começar as análises.</p>
+    <br>
+    <a href="/admin/clients/new" class="btn btn-primary">➕ Adicionar Cliente</a>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Atividade Recente -->
+{% if recent_reports %}
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Atividade Recente</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th><th>Cliente</th><th>Status</th><th>Custo Mensal</th><th>Economia</th><th>Iniciado</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in recent_reports %}
+        <tr>
+          <td style="font-size:12px;color:var(--text-light)">#{{ r.id }}</td>
+          <td>
+            {% if client_map.get(r.client_id) %}
+              <a href="/admin/clients/{{ r.client_id }}">{{ client_map[r.client_id].company }}</a>
+            {% else %}
+              Cliente #{{ r.client_id }}
+            {% endif %}
+          </td>
+          <td>
+            {% if r.status == 'completed' %}<span class="badge badge-green">✓ Concluído</span>
+            {% elif r.status == 'running' %}<span class="badge badge-navy"><span class="spinner" style="width:12px;height:12px;border-width:2px"></span> Executando</span>
+            {% elif r.status == 'failed' %}<span class="badge badge-red">✗ Falhou</span>
+            {% else %}<span class="badge badge-navy">⏳ Pendente</span>{% endif %}
+          </td>
+          <td>{% if r.monthly_cost %}${{ "%.0f"|format(r.monthly_cost) }}{% else %}—{% endif %}</td>
+          <td>{% if r.potential_savings %}<span style="color:#16a34a;font-weight:600">${{ "%.0f"|format(r.potential_savings) }}/mês</span>{% else %}—{% endif %}</td>
+          <td style="color:var(--text-light);font-size:12px">{{ r.started_at.strftime('%d/%m %H:%M') if r.started_at }}</td>
+          <td>
+            {% if r.status in ('completed', 'partial') and client_map.get(r.client_id) %}
+              <a href="/finops/{{ r.client_id }}" class="btn btn-outline btn-sm">FinOps</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block tour_steps %}
+<script>
+window._pageTourSteps = [
+  {
+    selector: '.stats-grid',
+    title: 'Resumo do Portfolio',
+    desc: 'Visão rápida de todo o portfolio: total de clientes ativos, quantos têm findings críticos de segurança, a soma de economia identificada e análises em andamento neste momento.',
+    pos: 'bottom'
+  },
+  {
+    selector: '.topbar-right .btn-primary',
+    title: 'Novo Cliente',
+    desc: 'Cadastre um novo cliente informando nome, empresa, e-mail, ARN da role IAM e as regiões AWS que serão analisadas. Cada cliente recebe um token único de acesso ao portal.',
+    pos: 'bottom'
+  },
+  {
+    selector: 'table',
+    title: 'Portfolio de Clientes',
+    desc: 'Lista de todos os clientes com Score FinOps, Score de Segurança, tendência de custo, custo mensal estimado e potencial de economia. Clique no nome do cliente para acessar os detalhes.',
+    pos: 'top'
+  },
+  {
+    selector: 'thead tr th:nth-child(2)',
+    title: 'Score FinOps',
+    desc: 'Score de 0 a 100 calculado pela análise de custos. Verde (≥70) = boa gestão, Amarelo (40–69) = melhorias necessárias, Vermelho (<40) = situação crítica com desperdício significativo.',
+    pos: 'bottom'
+  },
+  {
+    selector: 'thead tr th:nth-child(3)',
+    title: 'Score de Segurança',
+    desc: 'Score de 0 a 100 baseado nos findings de IAM, S3, rede, criptografia e compliance. Cada finding crítico desconta 20 pontos, high desconta 10, medium desconta 5.',
+    pos: 'bottom'
+  },
+  {
+    selector: 'thead tr th:nth-child(4)',
+    title: 'Tendência de Custo',
+    desc: 'Indica se o custo mensal está crescendo, estável ou decrescendo. Uma seta vermelha ↑ significa custo crescente que precisa de atenção imediata.',
+    pos: 'bottom'
+  },
+  {
+    selector: 'thead tr th:nth-child(6)',
+    title: 'Economia Potencial',
+    desc: 'Total que pode ser economizado por mês se todas as recomendações forem implementadas. Inclui rightsizing de EC2, eliminação de recursos ociosos, reservas e Savings Plans.',
+    pos: 'bottom'
+  },
+  {
+    selector: 'thead tr th:nth-child(8)',
+    title: 'Ações por Cliente',
+    desc: 'O botão "Detalhes" abre a página completa do cliente. O botão "FinOps" acessa diretamente o dashboard de custos quando uma análise já foi concluída ou está parcial.',
+    pos: 'top'
+  },
+  {
+    selector: '#ds-tour-btn',
+    title: 'Guia de Uso',
+    desc: 'Este botão inicia o guia interativo em qualquer página da aplicação. Cada página tem seu próprio tour com explicações específicas do que está sendo exibido.',
+    pos: 'top'
+  },
+];
+</script>
+{% endblock %}

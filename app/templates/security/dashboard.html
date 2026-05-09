@@ -1,0 +1,471 @@
+{% extends "base.html" %}
+{% block title %}Segurança — {{ client.company }}{% endblock %}
+{% block topbar_title %}🔒 Segurança — {{ client.company }}{% endblock %}
+
+{% block sidebar_nav %}
+<nav>
+  <div class="sidebar-section">Admin</div>
+  <a href="/admin"><span class="icon">🏠</span> Dashboard</a>
+  <a href="/admin/clients/{{ client.id }}"><span class="icon">👤</span> {{ client.company }}</a>
+  <div class="sidebar-section">FinOps</div>
+  <a href="/finops/{{ client.id }}"><span class="icon">📊</span> Visão Geral</a>
+  <a href="/finops/{{ client.id }}/quick-wins"><span class="icon">⚡</span> Quick Wins</a>
+  <a href="/finops/{{ client.id }}/projects"><span class="icon">🗂️</span> Projetos</a>
+  <a href="/finops/{{ client.id }}/unused-resources"><span class="icon">🗑️</span> Recursos Ociosos</a>
+  <div class="sidebar-section">Segurança</div>
+  <a href="/security/{{ client.id }}" class="active"><span class="icon">🔒</span> Visão Geral</a>
+  <a href="/security/{{ client.id }}/quick-wins"><span class="icon">⚡</span> Quick Wins</a>
+  <a href="/security/{{ client.id }}/projects"><span class="icon">🗂️</span> Projetos</a>
+  <a href="/security/{{ client.id }}/findings"><span class="icon">🔍</span> Findings</a>
+  <div class="sidebar-section">Recursos</div>
+  <a href="/static/docs/cloud-sentinel-documentation.html" target="_blank"><span class="icon">📄</span> Documentação</a>
+</nav>
+{% endblock %}
+
+{% block topbar_right %}
+<a href="/finops/{{ client.id }}" class="btn btn-outline btn-sm">💰 FinOps</a>
+<a href="/admin/clients/{{ client.id }}" class="btn btn-navy btn-sm">← Admin</a>
+{% endblock %}
+
+{% block content %}
+{% if not report %}
+<div class="empty-state card">
+  <div class="icon">🔒</div>
+  <h3>Nenhuma análise disponível</h3>
+  <p>Inicie uma análise na página do cliente.</p>
+  <br><a href="/admin/clients/{{ client.id }}" class="btn btn-primary">Ir para o cliente</a>
+</div>
+{% else %}
+
+{% set sec_recs = report.rightsizing_recommendations or {} %}
+{% set iam = report.iam_findings or {} %}
+{% set net = report.network_findings or {} %}
+{% set enc = report.encryption_findings or {} %}
+{% set s3sec = (report.s3_findings or {}).get('security') or {} %}
+{% set ss = [100 - (report.critical_findings * 20) - (report.high_findings * 10) - (report.medium_findings * 5), 0] | max %}
+
+<!-- Security summary from Claude -->
+{% if report.security_summary %}
+<div class="alert alert-{% if report.critical_findings > 0 %}error{% elif report.high_findings > 5 %}warning{% else %}info{% endif %}" style="margin-bottom:20px">
+  <span style="font-size:18px">🤖</span>
+  <div><strong>Análise Claude AI:</strong> {{ report.security_summary }}</div>
+</div>
+{% endif %}
+
+<!-- Severity stats -->
+<div class="stats-grid">
+  <div class="stat-card red">
+    <span class="stat-label">Críticos</span>
+    <span class="stat-value">{{ report.critical_findings or 0 }}</span>
+    <span class="stat-sub">Ação imediata necessária</span>
+  </div>
+  <div class="stat-card orange">
+    <span class="stat-label">Altos</span>
+    <span class="stat-value">{{ report.high_findings or 0 }}</span>
+    <span class="stat-sub">Resolução urgente</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-label">Médios</span>
+    <span class="stat-value">{{ report.medium_findings or 0 }}</span>
+    <span class="stat-sub">Planejar correção</span>
+  </div>
+  <div class="stat-card green">
+    <span class="stat-label">Baixos</span>
+    <span class="stat-value">{{ report.low_findings or 0 }}</span>
+    <span class="stat-sub">Melhorias de boas práticas</span>
+  </div>
+</div>
+
+<!-- Score + IAM Overview -->
+<div class="grid-2" style="margin-bottom:24px">
+  <div class="card">
+    <div class="card-header"><span class="card-title">Score de Segurança</span></div>
+    <div style="display:flex;align-items:center;gap:24px">
+      <div class="score-circle score-{% if ss >= 80 %}excellent{% elif ss >= 60 %}good{% elif ss >= 40 %}fair{% elif ss >= 20 %}poor{% else %}critical{% endif %}">
+        <span class="score-number">{{ ss }}</span>
+        <span class="score-label">Score</span>
+      </div>
+      <div>
+        {% if ss >= 80 %}<div style="font-size:18px;font-weight:700;color:var(--low)">Excelente</div>
+        {% elif ss >= 60 %}<div style="font-size:18px;font-weight:700;color:var(--info)">Bom</div>
+        {% elif ss >= 40 %}<div style="font-size:18px;font-weight:700;color:var(--medium)">Regular</div>
+        {% elif ss >= 20 %}<div style="font-size:18px;font-weight:700;color:var(--high)">Fraco</div>
+        {% else %}<div style="font-size:18px;font-weight:700;color:var(--critical)">Crítico</div>{% endif %}
+        <div style="font-size:12px;color:var(--text-light);margin-top:4px">
+          Analisado em {{ report.completed_at.strftime('%d/%m/%Y %H:%M') if report.completed_at }}
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <a href="/security/{{ client.id }}/quick-wins" class="btn btn-primary btn-sm">⚡ Quick Wins</a>
+          <a href="/security/{{ client.id }}/findings" class="btn btn-outline btn-sm">🔍 Todos Findings</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- IAM summary -->
+  {% if report.iam_findings %}
+  {% set iam = report.iam_findings %}
+  <div class="card">
+    <div class="card-header"><span class="card-title">IAM — Resumo</span></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div style="padding:12px;background:{% if not iam.root_mfa_enabled %}rgba(229,62,62,0.08){% else %}rgba(56,161,105,0.08){% endif %};border-radius:8px">
+        <div style="font-size:11px;color:var(--text-light);margin-bottom:4px">ROOT MFA</div>
+        <div style="font-weight:700;color:{% if iam.root_mfa_enabled %}var(--low){% else %}var(--critical){% endif %}">
+          {% if iam.root_mfa_enabled %}✓ Ativado{% else %}✗ Desativado{% endif %}
+        </div>
+      </div>
+      <div style="padding:12px;background:{% if (iam.users_without_mfa or [])|length > 0 %}rgba(221,107,32,0.08){% else %}rgba(56,161,105,0.08){% endif %};border-radius:8px">
+        <div style="font-size:11px;color:var(--text-light);margin-bottom:4px">USUÁRIOS SEM MFA</div>
+        <div style="font-weight:700;color:{% if (iam.users_without_mfa or [])|length > 0 %}var(--high){% else %}var(--low){% endif %}">
+          {{ (iam.users_without_mfa or [])|length }}
+        </div>
+      </div>
+      <div style="padding:12px;background:{% if (iam.users_with_old_keys or [])|length > 0 %}rgba(214,158,46,0.08){% else %}rgba(56,161,105,0.08){% endif %};border-radius:8px">
+        <div style="font-size:11px;color:var(--text-light);margin-bottom:4px">CHAVES +90 DIAS</div>
+        <div style="font-weight:700;color:{% if (iam.users_with_old_keys or [])|length > 0 %}var(--medium){% else %}var(--low){% endif %}">
+          {{ (iam.users_with_old_keys or [])|length }}
+        </div>
+      </div>
+      <div style="padding:12px;background:{% if (iam.overprivileged_policies or [])|length > 0 %}rgba(229,62,62,0.08){% else %}rgba(56,161,105,0.08){% endif %};border-radius:8px">
+        <div style="font-size:11px;color:var(--text-light);margin-bottom:4px">POLICIES ADMIN *:*</div>
+        <div style="font-weight:700;color:{% if (iam.overprivileged_policies or [])|length > 0 %}var(--critical){% else %}var(--low){% endif %}">
+          {{ (iam.overprivileged_policies or [])|length }}
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- O que está impactando o Security Score -->
+{% if ss < 100 %}
+<div class="card" style="margin-bottom:24px">
+  <div class="card-header" style="border-bottom:1px solid var(--border-color)">
+    <span class="card-title">📉 O que está impactando seu Security Score</span>
+    <span style="font-size:12px;color:var(--text-light)">Resolva nesta ordem para maximizar o score</span>
+  </div>
+  <div>
+
+    {% if report.iam_findings %}
+    {% if not iam.root_mfa_enabled %}
+    <div style="display:flex;align-items:center;gap:14px;padding:10px 20px;border-bottom:1px solid var(--border-color)">
+      <span class="sev sev-critical" style="min-width:60px;text-align:center;flex-shrink:0">CRÍTICO</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:13px;color:var(--navy)">Root MFA desativado</div>
+        <div style="font-size:12px;color:var(--text-light)">Maior risco da conta — ativar MFA no usuário root imediatamente</div>
+      </div>
+      <span style="color:var(--critical);font-weight:700;font-size:13px;white-space:nowrap;flex-shrink:0">−20 pts</span>
+    </div>
+    {% endif %}
+    {% if (iam.overprivileged_policies or [])|length > 0 %}
+    {% set cnt = (iam.overprivileged_policies or [])|length %}
+    <div style="display:flex;align-items:center;gap:14px;padding:10px 20px;border-bottom:1px solid var(--border-color)">
+      <span class="sev sev-critical" style="min-width:60px;text-align:center;flex-shrink:0">CRÍTICO</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:13px;color:var(--navy)">{{ cnt }} política(s) com permissões *:* (Admin irrestrito)</div>
+        <div style="font-size:12px;color:var(--text-light)">Aplicar least privilege — remover ou restringir políticas com wildcard</div>
+      </div>
+      <span style="color:var(--critical);font-weight:700;font-size:13px;white-space:nowrap;flex-shrink:0">−{{ cnt * 20 }} pts</span>
+    </div>
+    {% endif %}
+    {% endif %}
+
+    {% if report.s3_findings %}
+    {% if (s3sec.get('public_buckets', []))|length > 0 %}
+    {% set cnt = (s3sec.get('public_buckets', []))|length %}
+    <div style="display:flex;align-items:center;gap:14px;padding:10px 20px;border-bottom:1px solid var(--border-color)">
+      <span class="sev sev-critical" style="min-width:60px;text-align:center;flex-shrink:0">CRÍTICO</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:13px;color:var(--navy)">{{ cnt }} bucket(s) S3 públicos</div>
+        <div style="font-size:12px;color:var(--text-light)">Dados expostos publicamente — bloquear acesso (Block Public Access)</div>
+      </div>
+      <span style="color:var(--critical);font-weight:700;font-size:13px;white-space:nowrap;flex-shrink:0">−{{ cnt * 20 }} pts</span>
+    </div>
+    {% endif %}
+    {% endif %}
+
+    {% if report.network_findings %}
+    {% if (net.open_security_groups or [])|length > 0 %}
+    {% set cnt = (net.open_security_groups or [])|length %}
+    <div style="display:flex;align-items:center;gap:14px;padding:10px 20px;border-bottom:1px solid var(--border-color)">
+      <span class="sev sev-critical" style="min-width:60px;text-align:center;flex-shrink:0">CRÍTICO</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:13px;color:var(--navy)">{{ cnt }} Security Group(s) com 0.0.0.0/0</div>
+        <div style="font-size:12px;color:var(--text-light)">Portas abertas para qualquer IP — restringir a IPs/CIDRs específicos</div>
+      </div>
+      <span style="color:var(--critical);font-weight:700;font-size:13px;white-space:nowrap;flex-shrink:0">−{{ cnt * 20 }} pts</span>
+    </div>
+    {% endif %}
+    {% endif %}
+
+    {% if report.encryption_findings %}
+    {% if (enc.unencrypted_rds or [])|length > 0 %}
+    {% set cnt = (enc.unencrypted_rds or [])|length %}
+    <div style="display:flex;align-items:center;gap:14px;padding:10px 20px;border-bottom:1px solid var(--border-color)">
+      <span class="sev sev-high" style="min-width:60px;text-align:center;flex-shrink:0">ALTO</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:13px;color:var(--navy)">{{ cnt }} instância(s) RDS sem criptografia</div>
+        <div style="font-size:12px;color:var(--text-light)">Dados em repouso desprotegidos — habilitar encryption at rest</div>
+      </div>
+      <span style="color:var(--high);font-weight:700;font-size:13px;white-space:nowrap;flex-shrink:0">−{{ cnt * 10 }} pts</span>
+    </div>
+    {% endif %}
+    {% endif %}
+
+    {% if report.network_findings %}
+    {% if (net.regions_without_guardduty or [])|length > 0 %}
+    {% set cnt = (net.regions_without_guardduty or [])|length %}
+    <div style="display:flex;align-items:center;gap:14px;padding:10px 20px;border-bottom:1px solid var(--border-color)">
+      <span class="sev sev-high" style="min-width:60px;text-align:center;flex-shrink:0">ALTO</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:13px;color:var(--navy)">GuardDuty ausente em {{ cnt }} região(ões)</div>
+        <div style="font-size:12px;color:var(--text-light)">Sem detecção de ameaças — habilitar GuardDuty em todas as regiões ativas</div>
+      </div>
+      <span style="color:var(--high);font-weight:700;font-size:13px;white-space:nowrap;flex-shrink:0">−{{ cnt * 10 }} pts</span>
+    </div>
+    {% endif %}
+    {% endif %}
+
+    {% if report.s3_findings %}
+    {% if (s3sec.get('unencrypted_buckets', []))|length > 0 %}
+    {% set cnt = (s3sec.get('unencrypted_buckets', []))|length %}
+    <div style="display:flex;align-items:center;gap:14px;padding:10px 20px;border-bottom:1px solid var(--border-color)">
+      <span class="sev sev-high" style="min-width:60px;text-align:center;flex-shrink:0">ALTO</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:13px;color:var(--navy)">{{ cnt }} bucket(s) S3 sem criptografia</div>
+        <div style="font-size:12px;color:var(--text-light)">Habilitar SSE-S3 ou SSE-KMS como default em todos os buckets</div>
+      </div>
+      <span style="color:var(--high);font-weight:700;font-size:13px;white-space:nowrap;flex-shrink:0">−{{ cnt * 10 }} pts</span>
+    </div>
+    {% endif %}
+    {% endif %}
+
+    {% if report.iam_findings %}
+    {% if (iam.users_without_mfa or [])|length > 0 %}
+    {% set cnt = (iam.users_without_mfa or [])|length %}
+    <div style="display:flex;align-items:center;gap:14px;padding:10px 20px;border-bottom:1px solid var(--border-color)">
+      <span class="sev sev-medium" style="min-width:60px;text-align:center;flex-shrink:0">MÉDIO</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:13px;color:var(--navy)">{{ cnt }} usuário(s) IAM sem MFA</div>
+        <div style="font-size:12px;color:var(--text-light)">Autenticação de fator único — ativar MFA virtual ou hardware</div>
+      </div>
+      <span style="color:var(--medium);font-weight:700;font-size:13px;white-space:nowrap;flex-shrink:0">−{{ cnt * 5 }} pts</span>
+    </div>
+    {% endif %}
+    {% endif %}
+
+    {% if report.encryption_findings %}
+    {% if (enc.unencrypted_ebs or [])|length > 0 %}
+    {% set cnt = (enc.unencrypted_ebs or [])|length %}
+    <div style="display:flex;align-items:center;gap:14px;padding:10px 20px;border-bottom:1px solid var(--border-color)">
+      <span class="sev sev-medium" style="min-width:60px;text-align:center;flex-shrink:0">MÉDIO</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:13px;color:var(--navy)">{{ cnt }} volume(s) EBS sem criptografia</div>
+        <div style="font-size:12px;color:var(--text-light)">Ativar EBS Encryption by Default nas configurações da conta</div>
+      </div>
+      <span style="color:var(--medium);font-weight:700;font-size:13px;white-space:nowrap;flex-shrink:0">−{{ cnt * 5 }} pts</span>
+    </div>
+    {% endif %}
+    {% endif %}
+
+    {% if report.network_findings %}
+    {% if (net.vpcs_without_flow_logs or [])|length > 0 %}
+    {% set cnt = (net.vpcs_without_flow_logs or [])|length %}
+    <div style="display:flex;align-items:center;gap:14px;padding:10px 20px;border-bottom:1px solid var(--border-color)">
+      <span class="sev sev-medium" style="min-width:60px;text-align:center;flex-shrink:0">MÉDIO</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:13px;color:var(--navy)">{{ cnt }} VPC(s) sem Flow Logs</div>
+        <div style="font-size:12px;color:var(--text-light)">Sem visibilidade de tráfego — habilitar VPC Flow Logs para auditoria</div>
+      </div>
+      <span style="color:var(--medium);font-weight:700;font-size:13px;white-space:nowrap;flex-shrink:0">−{{ cnt * 5 }} pts</span>
+    </div>
+    {% endif %}
+    {% endif %}
+
+    {% if report.iam_findings %}
+    {% if (iam.users_with_old_keys or [])|length > 0 %}
+    {% set cnt = (iam.users_with_old_keys or [])|length %}
+    <div style="display:flex;align-items:center;gap:14px;padding:10px 20px">
+      <span class="sev sev-medium" style="min-width:60px;text-align:center;flex-shrink:0">MÉDIO</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:13px;color:var(--navy)">{{ cnt }} usuário(s) com access keys +90 dias</div>
+        <div style="font-size:12px;color:var(--text-light)">Credenciais obsoletas — rotacionar chaves de acesso regularmente</div>
+      </div>
+      <span style="color:var(--medium);font-weight:700;font-size:13px;white-space:nowrap;flex-shrink:0">−{{ cnt * 5 }} pts</span>
+    </div>
+    {% endif %}
+    {% endif %}
+
+  </div>
+  <div style="padding:10px 20px;background:var(--bg-hero);border-top:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center">
+    <span style="font-size:11px;color:var(--text-light)">Pontos estimados pela severidade. O score real é calculado pelo Claude AI.</span>
+    <a href="/security/{{ client.id }}/findings" class="btn btn-outline btn-sm">Ver todos os findings →</a>
+  </div>
+</div>
+{% endif %}
+
+<!-- Network + Encryption summary -->
+<div class="grid-2" style="margin-bottom:24px">
+  {% if report.network_findings %}
+  {% set net = report.network_findings %}
+  <div class="card">
+    <div class="card-header"><span class="card-title">🌐 Rede & Monitoramento</span></div>
+    <table style="font-size:13px">
+      <tr>
+        <td style="padding:8px 0;color:var(--text-light)">Security Groups abertos</td>
+        <td style="padding:8px 0">
+          <span class="sev sev-{% if (net.open_security_groups or [])|length > 0 %}critical{% else %}low{% endif %}">
+            {{ (net.open_security_groups or [])|length }}
+          </span>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:8px 0;color:var(--text-light)">VPCs sem Flow Logs</td>
+        <td style="padding:8px 0">
+          <span class="sev sev-{% if (net.vpcs_without_flow_logs or [])|length > 0 %}medium{% else %}low{% endif %}">
+            {{ (net.vpcs_without_flow_logs or [])|length }}
+          </span>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:8px 0;color:var(--text-light)">Regiões sem GuardDuty</td>
+        <td style="padding:8px 0">
+          <span class="sev sev-{% if (net.regions_without_guardduty or [])|length > 0 %}high{% else %}low{% endif %}">
+            {{ (net.regions_without_guardduty or [])|length }}
+          </span>
+        </td>
+      </tr>
+      {% if net.cloudtrail_status %}
+      <tr>
+        <td style="padding:8px 0;color:var(--text-light)">CloudTrail Ativo</td>
+        <td style="padding:8px 0">
+          {% set ct_active = net.cloudtrail_status.values()|selectattr('is_logging')|list|length > 0 %}
+          <span class="sev sev-{% if ct_active %}low{% else %}critical{% endif %}">
+            {% if ct_active %}✓ Sim{% else %}✗ Não{% endif %}
+          </span>
+        </td>
+      </tr>
+      {% endif %}
+    </table>
+  </div>
+  {% endif %}
+
+  {% if report.encryption_findings or report.s3_findings %}
+  {% set enc = report.encryption_findings or {} %}
+  {% set s3sec = (report.s3_findings or {}).get('security', {}) %}
+  <div class="card">
+    <div class="card-header"><span class="card-title">🔐 Criptografia & S3</span></div>
+    <table style="font-size:13px">
+      <tr>
+        <td style="padding:8px 0;color:var(--text-light)">Volumes EBS não criptografados</td>
+        <td style="padding:8px 0">
+          <span class="sev sev-{% if (enc.unencrypted_ebs or [])|length > 0 %}medium{% else %}low{% endif %}">
+            {{ (enc.unencrypted_ebs or [])|length }}
+          </span>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:8px 0;color:var(--text-light)">RDS não criptografados</td>
+        <td style="padding:8px 0">
+          <span class="sev sev-{% if (enc.unencrypted_rds or [])|length > 0 %}high{% else %}low{% endif %}">
+            {{ (enc.unencrypted_rds or [])|length }}
+          </span>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:8px 0;color:var(--text-light)">Buckets S3 públicos</td>
+        <td style="padding:8px 0">
+          <span class="sev sev-{% if (s3sec.get('public_buckets', []))|length > 0 %}critical{% else %}low{% endif %}">
+            {{ (s3sec.get('public_buckets', []))|length }}
+          </span>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:8px 0;color:var(--text-light)">Buckets S3 sem criptografia</td>
+        <td style="padding:8px 0">
+          <span class="sev sev-{% if (s3sec.get('unencrypted_buckets', []))|length > 0 %}high{% else %}low{% endif %}">
+            {{ (s3sec.get('unencrypted_buckets', []))|length }}
+          </span>
+        </td>
+      </tr>
+    </table>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Quick wins preview -->
+{% if report.quick_wins %}
+{% set sec_qw = [] %}
+{% for qw in report.quick_wins %}{% if qw.get('area') == 'security' %}{% set _ = sec_qw.append(qw) %}{% endif %}{% endfor %}
+{% if sec_qw %}
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">⚡ Quick Wins Principais</span>
+    <a href="/security/{{ client.id }}/quick-wins" class="btn btn-outline btn-sm">Ver todos</a>
+  </div>
+  {% for qw in sec_qw[:3] %}
+  <div class="action-card">
+    <div class="action-card-header">
+      <div>
+        <div class="action-card-title">{{ qw.title }}</div>
+        <div class="action-meta" style="margin-top:6px">
+          <span class="sev sev-{{ qw.severity or 'medium' }}">{{ qw.severity or 'medium' }}</span>
+          <span class="tag">⏱️ {{ qw.effort_hours or '?' }}h</span>
+          {% if qw.account_id %}
+          <span class="tag" style="font-family:monospace;font-size:10px;color:var(--navy-mid)">🏦 {{ qw.account_id }}</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <p style="font-size:13px;color:var(--text-light)">{{ qw.description }}</p>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endif %}
+
+{% endif %}
+{% endblock %}
+
+{% block tour_steps %}
+<script>
+window._pageTourSteps = [
+  {
+    selector: '.stats-grid',
+    title: 'Métricas de Segurança',
+    desc: 'Score geral de segurança, total de findings críticos, altos e médios. O score parte de 100 e desconta por cada finding encontrado: crítico (-20), alto (-10), médio (-5).',
+    pos: 'bottom'
+  },
+  {
+    selector: '.alert-info, .alert-error, .alert-warning',
+    title: 'Resumo Executivo',
+    desc: 'Análise narrativa do Claude com o diagnóstico geral de segurança da conta: principais riscos identificados, contexto e prioridades de remediação.',
+    pos: 'bottom'
+  },
+  {
+    selector: 'nav a[href$="/findings"]',
+    title: 'Findings Detalhados',
+    desc: 'Inventário completo de todos os problemas de segurança encontrados: IAM (usuários sem MFA, chaves antigas), S3 (buckets públicos, sem criptografia), rede (Security Groups abertos, VPCs sem flow logs) e compliance.',
+    pos: 'bottom'
+  },
+  {
+    selector: 'nav a[href$="/quick-wins"]',
+    title: 'Quick Wins de Segurança',
+    desc: 'Ações de segurança de baixo esforço que podem ser implementadas rapidamente, como ativar MFA em usuários específicos, bloquear um Security Group ou habilitar logging em buckets S3.',
+    pos: 'bottom'
+  },
+  {
+    selector: 'nav a[href$="/projects"]',
+    title: 'Projetos de Segurança',
+    desc: 'Iniciativas estratégicas de segurança como implementar GuardDuty em todas as regiões, migrar para IAM Identity Center, ou estabelecer uma política de ciclo de vida de chaves de acesso.',
+    pos: 'bottom'
+  },
+  {
+    selector: '.card',
+    title: 'Áreas de Análise',
+    desc: 'A análise de segurança cobre 5 áreas: IAM (identidade e acesso), S3 (storage e exposição de dados), Rede (Security Groups, VPCs), Criptografia (recursos não encriptados) e Compliance (CloudTrail, GuardDuty).',
+    pos: 'bottom'
+  },
+];
+</script>
+{% endblock %}

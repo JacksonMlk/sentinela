@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Relatório Mensal — {{ client.company }}</title>
+<style>
+  @page {
+    margin: 20mm 18mm;
+    @top-right {
+      content: "Sentinela · {{ client.company }}";
+      font-size: 9pt;
+      color: #888;
+    }
+    @bottom-center {
+      content: "Página " counter(page) " de " counter(pages);
+      font-size: 9pt;
+      color: #888;
+    }
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 11pt;
+    color: #1a1a2e;
+    line-height: 1.5;
+  }
+
+  /* ── Color palette ── */
+  :root {
+    --navy:    #0b1956;
+    --pink:    #ff679a;
+    --green:   #188038;
+    --red:     #dc2626;
+    --orange:  #ea580c;
+    --amber:   #d97706;
+    --gray:    #6b7280;
+    --light:   #f8fafc;
+    --border:  #e2e8f0;
+  }
+
+  /* ── Cover page ── */
+  .cover {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 240mm;
+    page-break-after: always;
+  }
+  .cover-badge {
+    display: inline-block;
+    background: #ff679a;
+    color: #fff;
+    font-size: 10pt;
+    font-weight: 700;
+    letter-spacing: 2px;
+    padding: 4px 14px;
+    border-radius: 20px;
+    margin-bottom: 24px;
+  }
+  .cover-title {
+    font-size: 32pt;
+    font-weight: 800;
+    color: var(--navy);
+    line-height: 1.1;
+    margin-bottom: 12px;
+  }
+  .cover-sub {
+    font-size: 16pt;
+    color: var(--gray);
+    margin-bottom: 40px;
+  }
+  .cover-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .cover-meta-row {
+    font-size: 10pt;
+    color: var(--gray);
+  }
+  .cover-meta-row strong {
+    color: var(--navy);
+  }
+  .cover-divider {
+    width: 60px;
+    height: 4px;
+    background: var(--pink);
+    border-radius: 2px;
+    margin: 32px 0;
+  }
+
+  /* ── Sections ── */
+  .section {
+    page-break-before: always;
+    padding-top: 8pt;
+  }
+  .section-first { page-break-before: avoid; }
+
+  .section-label {
+    font-size: 8pt;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--pink);
+    text-transform: uppercase;
+    margin-bottom: 6pt;
+  }
+  .section-title {
+    font-size: 18pt;
+    font-weight: 800;
+    color: var(--navy);
+    margin-bottom: 16pt;
+    padding-bottom: 8pt;
+    border-bottom: 2px solid var(--border);
+  }
+
+  h2 {
+    font-size: 13pt;
+    font-weight: 700;
+    color: var(--navy);
+    margin: 16pt 0 8pt;
+  }
+  h3 {
+    font-size: 11pt;
+    font-weight: 700;
+    color: var(--navy);
+    margin: 12pt 0 6pt;
+  }
+
+  p { margin-bottom: 8pt; }
+
+  /* ── KPI grid ── */
+  .kpi-grid {
+    display: table;
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 8pt;
+    margin-bottom: 16pt;
+  }
+  .kpi-row { display: table-row; }
+  .kpi-cell {
+    display: table-cell;
+    width: 25%;
+    background: var(--light);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14pt 12pt;
+    vertical-align: top;
+  }
+  .kpi-label {
+    font-size: 8.5pt;
+    font-weight: 600;
+    color: var(--gray);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4pt;
+  }
+  .kpi-value {
+    font-size: 22pt;
+    font-weight: 800;
+    color: var(--navy);
+    line-height: 1;
+    margin-bottom: 4pt;
+  }
+  .kpi-sub {
+    font-size: 8.5pt;
+    color: var(--gray);
+  }
+  .kpi-up   { color: var(--red); }
+  .kpi-down { color: var(--green); }
+  .kpi-neutral { color: var(--gray); }
+
+  /* ── Tables ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 16pt;
+    font-size: 9.5pt;
+  }
+  thead tr { background: var(--navy); color: #fff; }
+  thead th {
+    padding: 7pt 10pt;
+    text-align: left;
+    font-weight: 600;
+    font-size: 9pt;
+  }
+  tbody tr:nth-child(even) { background: var(--light); }
+  tbody td {
+    padding: 6pt 10pt;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  /* ── Severity badges ── */
+  .badge {
+    display: inline-block;
+    padding: 1pt 7pt;
+    border-radius: 12px;
+    font-size: 8pt;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .badge-critical { background: rgba(220,38,38,0.12); color: var(--red); }
+  .badge-high     { background: rgba(234,88,12,0.12); color: var(--orange); }
+  .badge-medium   { background: rgba(217,119,6,0.12); color: var(--amber); }
+  .badge-low      { background: rgba(24,128,56,0.12); color: var(--green); }
+
+  /* ── Action items ── */
+  .action-item {
+    border-left: 3px solid var(--navy);
+    padding: 8pt 12pt;
+    margin-bottom: 8pt;
+    background: var(--light);
+    border-radius: 0 6px 6px 0;
+    break-inside: avoid;
+  }
+  .action-item.critical { border-color: var(--red); }
+  .action-item.high     { border-color: var(--orange); }
+  .action-item.medium   { border-color: var(--amber); }
+
+  .action-title {
+    font-weight: 700;
+    font-size: 10pt;
+    color: var(--navy);
+    margin-bottom: 3pt;
+  }
+  .action-desc {
+    font-size: 9pt;
+    color: var(--gray);
+    line-height: 1.4;
+  }
+  .action-meta {
+    font-size: 8pt;
+    color: var(--gray);
+    margin-top: 4pt;
+  }
+
+  /* ── Bar chart (CSS only) ── */
+  .bar-chart { margin-bottom: 14pt; }
+  .bar-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 5pt;
+    gap: 8pt;
+  }
+  .bar-label {
+    font-size: 8.5pt;
+    color: var(--navy);
+    width: 140pt;
+    flex-shrink: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .bar-track {
+    flex: 1;
+    background: var(--border);
+    border-radius: 3px;
+    height: 12pt;
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    background: var(--navy);
+    border-radius: 3px;
+  }
+  .bar-value {
+    font-size: 8.5pt;
+    font-weight: 600;
+    color: var(--navy);
+    width: 60pt;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  /* ── Executive highlight box ── */
+  .highlight-box {
+    background: rgba(11,25,86,0.04);
+    border-left: 4px solid var(--navy);
+    border-radius: 0 8px 8px 0;
+    padding: 12pt 16pt;
+    margin-bottom: 14pt;
+    break-inside: avoid;
+  }
+
+  /* ── Prowler severity row ── */
+  .sev-summary {
+    display: table;
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 12pt;
+  }
+  .sev-row { display: table-row; }
+  .sev-cell {
+    display: table-cell;
+    padding: 10pt;
+    text-align: center;
+    border: 1px solid var(--border);
+  }
+  .sev-count { font-size: 20pt; font-weight: 800; }
+  .sev-name  { font-size: 8pt; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+
+  footer-note {
+    font-size: 8pt;
+    color: var(--gray);
+    border-top: 1px solid var(--border);
+    padding-top: 10pt;
+    margin-top: 24pt;
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════
+     CAPA
+════════════════════════════════════════════════════ -->
+<div class="cover">
+  <div class="cover-badge">RELATÓRIO MENSAL · DREAMSQUAD</div>
+  <div class="cover-title">Análise de Custos<br>e Segurança AWS</div>
+  <div class="cover-sub">{{ client.company }}</div>
+  <div class="cover-divider"></div>
+  <div class="cover-meta">
+    <div class="cover-meta-row">Cliente: <strong>{{ client.company }}</strong></div>
+    <div class="cover-meta-row">Conta AWS: <strong>{{ client.aws_account_id or "—" }}</strong></div>
+    <div class="cover-meta-row">Regiões: <strong>{{ client.aws_regions or "us-east-1" }}</strong></div>
+    <div class="cover-meta-row">Período: <strong>
+      {% if prev_month_period %}{{ prev_month_period[:7] }}{% endif %}
+      {% if curr_month_cost %}– {{ today.strftime('%Y-%m') }}{% endif %}
+    </strong></div>
+    <div class="cover-meta-row">Gerado em: <strong>{{ today.strftime('%d/%m/%Y') }}</strong></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     1. RESUMO EXECUTIVO
+════════════════════════════════════════════════════ -->
+<div class="section section-first">
+  <div class="section-label">Seção 01</div>
+  <div class="section-title">Resumo Executivo</div>
+
+  <div class="highlight-box">
+    <p style="font-size:11pt;color:var(--navy);line-height:1.6">
+      Este relatório consolida a análise mensal de custos e postura de segurança da conta
+      AWS de <strong>{{ client.company }}</strong>. Os dados foram coletados automaticamente
+      via AWS Cost Explorer, análise de recursos e verificações de segurança.
+    </p>
+  </div>
+
+  <!-- KPI grid: 4 boxes -->
+  <div class="kpi-grid">
+    <div class="kpi-row">
+      <div class="kpi-cell">
+        <div class="kpi-label">Custo do Mês</div>
+        <div class="kpi-value">${{ "%.0f"|format(curr_month_cost or 0) }}</div>
+        <div class="kpi-sub">
+          {% if month_delta_pct is not none %}
+            <span class="{{ 'kpi-up' if month_delta_pct > 0 else 'kpi-down' }}">
+              {{ "▲" if month_delta_pct > 0 else "▼" }}
+              {{ "%.1f"|format(month_delta_pct|abs) }}% vs mês anterior
+            </span>
+          {% else %}
+            sem comparativo
+          {% endif %}
+        </div>
+      </div>
+      <div class="kpi-cell">
+        <div class="kpi-label">Economia Potencial</div>
+        <div class="kpi-value kpi-down">${{ "%.0f"|format(report.potential_savings or 0) }}</div>
+        <div class="kpi-sub">por mês identificada</div>
+      </div>
+      <div class="kpi-cell">
+        <div class="kpi-label">Score de Segurança</div>
+        <div class="kpi-value {{ 'kpi-down' if (report.security_score or 0) >= 70 else 'kpi-up' }}">
+          {{ report.security_score or "—" }}
+          {% if report.security_score %}<span style="font-size:13pt">/100</span>{% endif %}
+        </div>
+        <div class="kpi-sub">{{ report.security_label or "não avaliado" }}</div>
+      </div>
+      <div class="kpi-cell">
+        <div class="kpi-label">Previsão Próximo Mês</div>
+        <div class="kpi-value">
+          {% if forecast %}${{ "%.0f"|format(forecast) }}{% else %}—{% endif %}
+        </div>
+        <div class="kpi-sub">projeção Cost Explorer</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Security findings summary -->
+  {% if report.critical_findings or report.high_findings or report.medium_findings %}
+  <h2>Findings de Segurança</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Severidade</th>
+        <th>Quantidade</th>
+        <th>Impacto</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% if report.critical_findings %}
+      <tr>
+        <td><span class="badge badge-critical">Critical</span></td>
+        <td><strong>{{ report.critical_findings }}</strong></td>
+        <td>Requer ação imediata — risco de comprometimento</td>
+      </tr>
+      {% endif %}
+      {% if report.high_findings %}
+      <tr>
+        <td><span class="badge badge-high">High</span></td>
+        <td><strong>{{ report.high_findings }}</strong></td>
+        <td>Alta prioridade — endereçar em 7 dias</td>
+      </tr>
+      {% endif %}
+      {% if report.medium_findings %}
+      <tr>
+        <td><span class="badge badge-medium">Medium</span></td>
+        <td><strong>{{ report.medium_findings }}</strong></td>
+        <td>Prioridade média — endereçar em 30 dias</td>
+      </tr>
+      {% endif %}
+      {% if report.low_findings %}
+      <tr>
+        <td><span class="badge badge-low">Low</span></td>
+        <td><strong>{{ report.low_findings }}</strong></td>
+        <td>Baixo impacto — corrigir no próximo ciclo</td>
+      </tr>
+      {% endif %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     2. ANÁLISE DE CUSTOS (FINOPS)
+════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-label">Seção 02</div>
+  <div class="section-title">Análise de Custos — FinOps</div>
+
+  {% if prev_month_cost is not none %}
+  <h2>Comparativo Mensal</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Métrica</th>
+        <th>Mês Anterior</th>
+        <th>Mês Atual</th>
+        <th>Variação</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Custo Total</strong></td>
+        <td>${{ "%.2f"|format(prev_month_cost) }}</td>
+        <td><strong>${{ "%.2f"|format(curr_month_cost or 0) }}</strong></td>
+        <td>
+          {% if month_delta is not none %}
+          <span class="{{ 'kpi-up' if month_delta > 0 else 'kpi-down' }}" style="font-weight:700">
+            {{ "+" if month_delta > 0 else "" }}${{ "%.2f"|format(month_delta) }}
+            ({{ "%.1f"|format(month_delta_pct) }}%)
+          </span>
+          {% else %}—{% endif %}
+        </td>
+      </tr>
+      {% if forecast %}
+      <tr>
+        <td><strong>Previsão Fechamento</strong></td>
+        <td>—</td>
+        <td><strong>${{ "%.2f"|format(forecast) }}</strong></td>
+        <td style="color:var(--gray);font-style:italic">estimativa</td>
+      </tr>
+      {% endif %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  {% if top_services %}
+  <h2>Top {{ top_services|length }} Serviços por Custo</h2>
+  {% set max_cost = top_services[0].cost|float if top_services else 1 %}
+  <div class="bar-chart">
+    {% for svc in top_services %}
+    {% set pct = ((svc.cost|float) / max_cost * 100) | round | int %}
+    <div class="bar-row">
+      <div class="bar-label" title="{{ svc.service or svc.name or '—' }}">
+        {{ (svc.service or svc.name or '—')[:32] }}
+      </div>
+      <div class="bar-track">
+        <div class="bar-fill" style="width:{{ pct }}%"></div>
+      </div>
+      <div class="bar-value">${{ "%.0f"|format(svc.cost|float) }}</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Serviço</th>
+        <th>Custo/Mês</th>
+        <th>% do Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for svc in top_services %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ svc.service or svc.name or "—" }}</td>
+        <td><strong>${{ "%.2f"|format(svc.cost|float) }}</strong></td>
+        <td>
+          {% if curr_month_cost and curr_month_cost > 0 %}
+          {{ "%.1f"|format((svc.cost|float / curr_month_cost) * 100) }}%
+          {% else %}—{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  {% if report.finops_summary %}
+  <h2>Resumo FinOps</h2>
+  <p style="color:var(--gray);line-height:1.6">{{ report.finops_summary }}</p>
+  {% endif %}
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     3. POSTURA DE SEGURANÇA
+════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-label">Seção 03</div>
+  <div class="section-title">Postura de Segurança</div>
+
+  {% if report.security_summary %}
+  <div class="highlight-box">
+    <p style="font-size:10pt;color:var(--navy);line-height:1.6">{{ report.security_summary }}</p>
+  </div>
+  {% endif %}
+
+  <!-- Prowler findings summary if available -->
+  {% if prowler_total > 0 %}
+  <h2>Prowler — Findings por Severidade</h2>
+  <div class="sev-summary">
+    <div class="sev-row">
+      {% for sev, color in [('critical', '#dc2626'), ('high', '#ea580c'), ('medium', '#d97706'), ('low', '#188038')] %}
+      <div class="sev-cell">
+        <div class="sev-count" style="color:{{ color }}">
+          {{ prowler[sev]|length if prowler[sev] is defined else 0 }}
+        </div>
+        <div class="sev-name" style="color:{{ color }}">{{ sev }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Top critical/high prowler findings -->
+  {% set crit_high = (prowler.critical or []) + (prowler.high or []) %}
+  {% if crit_high %}
+  <h2>Findings Críticos e Altos (Prowler)</h2>
+  {% for f in crit_high[:10] %}
+  <div class="action-item {{ 'critical' if loop.index <= (prowler.critical or [])|length else 'high' }}">
+    <div class="action-title">{{ f.title }}</div>
+    {% if f.description and f.description != f.title %}
+    <div class="action-desc">{{ f.description[:200] }}{% if f.description|length > 200 %}…{% endif %}</div>
+    {% endif %}
+    <div class="action-meta">
+      {% if f.region %}📍 {{ f.region }} &nbsp;{% endif %}
+      {% if f.resource_type %}{{ f.resource_type }} &nbsp;{% endif %}
+      {% if f.remediation %}| Remediação: {{ f.remediation[:120] }}{% if f.remediation|length > 120 %}…{% endif %}{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+  {% if crit_high|length > 10 %}
+  <p style="font-size:9pt;color:var(--gray);font-style:italic">
+    + {{ crit_high|length - 10 }} finding(s) adicionais. Acesse o portal para detalhes completos.
+  </p>
+  {% endif %}
+  {% endif %}
+  {% endif %}
+
+  <!-- IAM findings -->
+  {% set iam = report.iam_findings or {} %}
+  {% if iam %}
+  <h2>IAM — Controle de Acesso</h2>
+  <table>
+    <thead>
+      <tr><th>Verificação</th><th>Status</th><th>Detalhe</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>MFA Conta Root</td>
+        <td>
+          {% if iam.root_mfa_enabled == false %}
+          <span class="badge badge-critical">FALHA</span>
+          {% elif iam.root_mfa_enabled == true %}
+          <span class="badge badge-low">OK</span>
+          {% else %}<span class="badge badge-medium">N/A</span>{% endif %}
+        </td>
+        <td>{% if iam.root_mfa_enabled == false %}MFA não habilitado no root — risco crítico{% else %}MFA ativo no root{% endif %}</td>
+      </tr>
+      {% if iam.users_without_mfa %}
+      <tr>
+        <td>Usuários sem MFA</td>
+        <td><span class="badge badge-high">ATENÇÃO</span></td>
+        <td>{{ iam.users_without_mfa|length }} usuário(s): {{ iam.users_without_mfa[:3]|join(', ') }}{% if iam.users_without_mfa|length > 3 %}…{% endif %}</td>
+      </tr>
+      {% endif %}
+      {% if iam.users_with_old_keys %}
+      <tr>
+        <td>Chaves de Acesso Antigas (&gt;90d)</td>
+        <td><span class="badge badge-medium">ATENÇÃO</span></td>
+        <td>{{ iam.users_with_old_keys|length }} usuário(s)</td>
+      </tr>
+      {% endif %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     4. AÇÕES RECOMENDADAS
+════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-label">Seção 04</div>
+  <div class="section-title">Ações Recomendadas — Priorizadas por ROI</div>
+
+  {% set qws = report.quick_wins or [] %}
+  {% if qws %}
+  <h2>Quick Wins (Execução em horas)</h2>
+  {% for qw in qws[:8] %}
+  {% if not qw.get('hidden') %}
+  <div class="action-item {{ qw.severity or 'medium' }}">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div style="flex:1">
+        <div class="action-title">{{ qw.title }}</div>
+        <div class="action-desc">{{ qw.description[:180] }}{% if qw.description and qw.description|length > 180 %}…{% endif %}</div>
+        <div class="action-meta">
+          <span class="badge badge-{{ qw.severity or 'medium' }}">{{ (qw.severity or 'medium')|upper }}</span>
+          {% if qw.effort_hours %} &nbsp; ⏱ ~{{ qw.effort_hours }}h{% endif %}
+        </div>
+      </div>
+      {% if qw.estimated_savings_monthly %}
+      <div style="text-align:right;flex-shrink:0;padding-left:12pt">
+        <div style="font-size:14pt;font-weight:800;color:var(--green)">${{ "%.0f"|format(qw.estimated_savings_monthly) }}</div>
+        <div style="font-size:8pt;color:var(--gray)">/mês</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+  {% endfor %}
+  {% endif %}
+
+  {% set projs = report.projects or [] %}
+  {% if projs %}
+  <h2>Projetos Estratégicos</h2>
+  {% for proj in projs[:5] %}
+  {% if not proj.get('hidden') %}
+  <div class="action-item">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div style="flex:1">
+        <div class="action-title">{{ proj.title }}</div>
+        <div class="action-desc">{{ proj.description[:160] }}{% if proj.description and proj.description|length > 160 %}…{% endif %}</div>
+        <div class="action-meta">
+          {% if proj.effort_weeks %} ⏱ ~{{ proj.effort_weeks }} semanas{% endif %}
+          {% if proj.category %} &nbsp;| 📁 {{ proj.category }}{% endif %}
+        </div>
+      </div>
+      {% if proj.estimated_savings_monthly %}
+      <div style="text-align:right;flex-shrink:0;padding-left:12pt">
+        <div style="font-size:14pt;font-weight:800;color:var(--green)">${{ "%.0f"|format(proj.estimated_savings_monthly) }}</div>
+        <div style="font-size:8pt;color:var(--gray)">/mês</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+  {% endfor %}
+  {% endif %}
+
+  <p style="font-size:9pt;color:var(--gray);margin-top:16pt;font-style:italic">
+    Relatório gerado automaticamente em {{ today.strftime('%d/%m/%Y às %H:%M') }} UTC
+    pela plataforma Sentinela. Para acompanhamento do progresso de cada ação,
+    acesse o portal do cliente.
+  </p>
+</div>
+
+</body>
+</html>

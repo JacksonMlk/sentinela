@@ -1,0 +1,187 @@
+{% extends "client/base.html" %}
+{% block title %}Visão Geral — {{ client.company }}{% endblock %}
+
+{% block content %}
+<!-- Welcome banner -->
+<div style="background:linear-gradient(135deg,var(--navy) 0%,#1a2f7a 100%);border-radius:20px;padding:32px;color:white;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px">
+  <div>
+    <h1 style="font-size:24px;font-weight:700;margin-bottom:4px">Olá, {{ client.name }}!</h1>
+    <p style="font-size:14px;opacity:.8">Aqui está a análise completa da sua conta AWS.</p>
+    <p style="font-size:12px;opacity:.6;margin-top:4px">
+      AWS Account: {{ client.aws_account_id or 'N/A' }} &nbsp;|&nbsp;
+      Regiões: {{ client.aws_regions }}
+    </p>
+  </div>
+  {% if report and report.completed_at %}
+  <div style="text-align:right">
+    <div style="font-size:11px;opacity:.6;margin-bottom:2px">Última análise</div>
+    <div style="font-size:14px;font-weight:600">{{ report.completed_at.strftime('%d/%m/%Y') }}</div>
+    <div style="font-size:12px;opacity:.7">{{ report.completed_at.strftime('%H:%M') }} UTC</div>
+  </div>
+  {% endif %}
+</div>
+
+{% if running %}
+<div class="alert alert-info">
+  <span class="spinner"></span>
+  <div><strong>Análise em andamento</strong> — Coletando dados da sua conta AWS. Por favor aguarde, isso pode levar alguns minutos.</div>
+</div>
+{% endif %}
+
+{% if not report %}
+<div class="empty-state card">
+  <div class="icon">🔍</div>
+  <h3>Análise ainda não realizada</h3>
+  <p>Nossa equipe em breve iniciará a análise da sua conta AWS.</p>
+</div>
+{% else %}
+
+{% set fin = report.rightsizing_recommendations or {} %}
+{% set ss = [100 - (report.critical_findings * 20) - (report.high_findings * 10) - (report.medium_findings * 5), 0] | max %}
+
+<!-- Scores -->
+<div class="grid-2" style="margin-bottom:24px">
+  <div class="card" style="display:flex;align-items:center;gap:24px">
+    {% set cs = fin.cost_health_score or 0 %}
+    <div class="score-circle score-{% if cs >= 80 %}excellent{% elif cs >= 60 %}good{% elif cs >= 40 %}fair{% elif cs >= 20 %}poor{% else %}critical{% endif %}">
+      <span class="score-number">{{ cs }}</span>
+      <span class="score-label">FinOps</span>
+    </div>
+    <div>
+      <div style="font-size:14px;font-weight:600;color:var(--navy)">Score FinOps: {{ fin.cost_health_label or 'N/A' }}</div>
+      <div style="font-size:13px;color:var(--text-light);margin-top:4px">
+        Custo mensal: <strong>${{ "%.0f"|format(report.monthly_cost or 0) }}</strong>
+      </div>
+      <div style="font-size:13px;color:var(--low);font-weight:600;margin-top:2px">
+        Economia potencial: ${{ "%.0f"|format(report.potential_savings or 0) }}/mês
+      </div>
+    </div>
+  </div>
+  <div class="card" style="display:flex;align-items:center;gap:24px">
+    <div class="score-circle score-{% if ss >= 80 %}excellent{% elif ss >= 60 %}good{% elif ss >= 40 %}fair{% elif ss >= 20 %}poor{% else %}critical{% endif %}">
+      <span class="score-number">{{ ss }}</span>
+      <span class="score-label">Security</span>
+    </div>
+    <div>
+      <div style="font-size:14px;font-weight:600;color:var(--navy)">Score de Segurança</div>
+      <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
+        <span class="sev sev-critical">{{ report.critical_findings }} Críticos</span>
+        <span class="sev sev-high">{{ report.high_findings }} Altos</span>
+        <span class="sev sev-medium">{{ report.medium_findings }} Médios</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="stats-grid">
+  <div class="stat-card navy">
+    <span class="stat-label">Custo Mensal</span>
+    <span class="stat-value">${{ "%.0f"|format(report.monthly_cost or 0) }}</span>
+    <span class="stat-sub">Mês atual</span>
+  </div>
+  <div class="stat-card green">
+    <span class="stat-label">Economia Possível</span>
+    <span class="stat-value">${{ "%.0f"|format(report.potential_savings or 0) }}</span>
+    <span class="stat-sub">{{ "%.1f"|format(report.savings_percentage or 0) }}% do custo atual</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-label">Quick Wins</span>
+    <span class="stat-value">{{ (report.quick_wins or [])|length }}</span>
+    <span class="stat-sub">Ações de baixo esforço</span>
+  </div>
+  <div class="stat-card red">
+    <span class="stat-label">Findings Críticos</span>
+    <span class="stat-value">{{ report.critical_findings or 0 }}</span>
+    <span class="stat-sub">Requerem atenção imediata</span>
+  </div>
+</div>
+
+<!-- Summaries -->
+{% if fin.executive_summary or report.security_summary %}
+<div class="grid-2" style="margin-bottom:24px">
+  {% if fin.executive_summary %}
+  <div class="card">
+    <div class="card-header"><span class="card-title">💰 Resumo FinOps</span></div>
+    <p style="font-size:13px;line-height:1.7;color:var(--text-light)">{{ fin.executive_summary }}</p>
+    <div style="margin-top:12px">
+      <a href="/portal/{{ token }}/finops" style="color:var(--pink);font-size:13px;font-weight:600">Ver análise completa →</a>
+    </div>
+  </div>
+  {% endif %}
+  {% if report.security_summary %}
+  <div class="card">
+    <div class="card-header"><span class="card-title">🔒 Resumo Segurança</span></div>
+    <p style="font-size:13px;line-height:1.7;color:var(--text-light)">{{ report.security_summary }}</p>
+    <div style="margin-top:12px">
+      <a href="/portal/{{ token }}/security" style="color:var(--pink);font-size:13px;font-weight:600">Ver análise completa →</a>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- Top Priority Actions -->
+{% set all_qws = report.quick_wins or [] %}
+{% set top_finops = all_qws | selectattr('estimated_savings_monthly') | sort(attribute='estimated_savings_monthly', reverse=True) | list %}
+{% set top_security = all_qws | selectattr('area', 'equalto', 'security') | list %}
+{% if top_finops or top_security %}
+<div class="card" style="margin-bottom:24px">
+  <div class="card-header">
+    <span class="card-title">🎯 Top Prioridades</span>
+    <a href="/portal/{{ token }}/quick-wins" style="font-size:12px;color:var(--pink);font-weight:600">Ver todas →</a>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:10px">
+    {% for qw in top_finops[:3] %}
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--bg-hero);border-radius:10px;border-left:3px solid var(--low)">
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600;color:var(--navy)">{{ qw.title }}</div>
+        <div style="font-size:11px;color:var(--text-light);margin-top:2px">
+          ⏱️ {{ qw.effort_hours or '?' }}h &nbsp;·&nbsp; risco {{ qw.risk or 'baixo' }}
+        </div>
+      </div>
+      {% if qw.estimated_savings_monthly %}
+      <div style="font-size:15px;font-weight:700;color:var(--low);flex-shrink:0">${{ "%.0f"|format(qw.estimated_savings_monthly) }}/mês</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+    {% if top_security %}
+    {% for qw in top_security[:2] %}
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--bg-hero);border-radius:10px;border-left:3px solid var(--critical)">
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600;color:var(--navy)">🔒 {{ qw.title }}</div>
+        <div style="font-size:11px;color:var(--text-light);margin-top:2px">Segurança &nbsp;·&nbsp; {{ qw.severity or 'médio' }}</div>
+      </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Quick actions grid -->
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px">
+  <a href="/portal/{{ token }}/finops" style="display:block;background:var(--white);border-radius:16px;padding:24px;border:1.5px solid var(--blue-card);transition:box-shadow .2s" onmouseover="this.style.boxShadow='0 8px 32px rgba(11,25,86,0.12)'" onmouseout="this.style.boxShadow=''">
+    <div style="font-size:28px;margin-bottom:8px">💰</div>
+    <div style="font-weight:600;color:var(--navy)">FinOps Dashboard</div>
+    <div style="font-size:12px;color:var(--text-light);margin-top:4px">Custos, tendências e oportunidades de economia</div>
+  </a>
+  <a href="/portal/{{ token }}/security" style="display:block;background:var(--white);border-radius:16px;padding:24px;border:1.5px solid var(--blue-card);transition:box-shadow .2s" onmouseover="this.style.boxShadow='0 8px 32px rgba(11,25,86,0.12)'" onmouseout="this.style.boxShadow=''">
+    <div style="font-size:28px;margin-bottom:8px">🔒</div>
+    <div style="font-weight:600;color:var(--navy)">Segurança</div>
+    <div style="font-size:12px;color:var(--text-light);margin-top:4px">Findings, vulnerabilidades e melhorias</div>
+  </a>
+  <a href="/portal/{{ token }}/quick-wins" style="display:block;background:var(--white);border-radius:16px;padding:24px;border:1.5px solid var(--blue-card);transition:box-shadow .2s" onmouseover="this.style.boxShadow='0 8px 32px rgba(11,25,86,0.12)'" onmouseout="this.style.boxShadow=''">
+    <div style="font-size:28px;margin-bottom:8px">⚡</div>
+    <div style="font-weight:600;color:var(--navy)">Quick Wins</div>
+    <div style="font-size:12px;color:var(--text-light);margin-top:4px">{{ (report.quick_wins or [])|length }} ações de implementação rápida</div>
+  </a>
+  <a href="/portal/{{ token }}/projects" style="display:block;background:var(--white);border-radius:16px;padding:24px;border:1.5px solid var(--blue-card);transition:box-shadow .2s" onmouseover="this.style.boxShadow='0 8px 32px rgba(11,25,86,0.12)'" onmouseout="this.style.boxShadow=''">
+    <div style="font-size:28px;margin-bottom:8px">🗂️</div>
+    <div style="font-weight:600;color:var(--navy)">Projetos</div>
+    <div style="font-size:12px;color:var(--text-light);margin-top:4px">{{ (report.projects or [])|length }} iniciativas estratégicas</div>
+  </a>
+</div>
+
+{% endif %}
+{% endblock %}

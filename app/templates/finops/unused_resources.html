@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% block title %}Recursos Ociosos — {{ client.company }}{% endblock %}
+{% block topbar_title %}🗑️ Recursos Ociosos{% endblock %}
+
+{% block sidebar_nav %}
+<nav>
+  <div class="sidebar-section">Admin</div>
+  <a href="/admin"><span class="icon">🏠</span> Dashboard</a>
+  <a href="/admin/clients/{{ client.id }}"><span class="icon">👤</span> {{ client.company }}</a>
+  <div class="sidebar-section">FinOps</div>
+  <a href="/finops/{{ client.id }}"><span class="icon">📊</span> Visão Geral</a>
+  <a href="/finops/{{ client.id }}/quick-wins"><span class="icon">⚡</span> Quick Wins</a>
+  <a href="/finops/{{ client.id }}/projects"><span class="icon">🗂️</span> Projetos</a>
+  <a href="/finops/{{ client.id }}/unused-resources" class="active"><span class="icon">🗑️</span> Recursos Ociosos</a>
+  <a href="/finops/{{ client.id }}/correlations"><span class="icon">🔗</span> Mapa de Correlações</a>
+  <div class="sidebar-section">Segurança</div>
+  <a href="/security/{{ client.id }}"><span class="icon">🔒</span> Visão Geral</a>
+  <div class="sidebar-section">Recursos</div>
+  <a href="/static/docs/cloud-sentinel-documentation.html" target="_blank"><span class="icon">📄</span> Documentação</a>
+</nav>
+{% endblock %}
+
+{% block content %}
+{% if not unused %}
+<div class="empty-state card"><div class="icon">🗑️</div><h3>Sem dados</h3><p>Inicie uma análise primeiro.</p></div>
+{% else %}
+
+{% set vols = unused.get('unattached_volumes', []) %}
+{% set eips = unused.get('unused_eips', []) %}
+{% set snaps = unused.get('old_snapshots', []) %}
+{% set stopped = unused.get('stopped_instances', []) %}
+{% set lbs = unused.get('idle_load_balancers', []) %}
+
+{% set vol_cost = vols|sum(attribute='estimated_monthly_cost', start=0) %}
+{% set eip_cost = eips|sum(attribute='estimated_monthly_cost', start=0) %}
+{% set snap_cost = snaps|sum(attribute='estimated_monthly_cost', start=0) %}
+{% set lb_cost = lbs|sum(attribute='estimated_monthly_cost', start=0) %}
+{% set total_waste = vol_cost + eip_cost + snap_cost + lb_cost %}
+
+<div class="stats-grid" style="margin-bottom:24px">
+  <div class="stat-card red"><span class="stat-label">Desperdício Total</span><span class="stat-value">${{ "%.0f"|format(total_waste) }}</span><span class="stat-sub">por mês</span></div>
+  <div class="stat-card"><span class="stat-label">Volumes EBS sem uso</span><span class="stat-value">{{ vols|length }}</span><span class="stat-sub">${{ "%.0f"|format(vol_cost) }}/mês</span></div>
+  <div class="stat-card"><span class="stat-label">Elastic IPs não usados</span><span class="stat-value">{{ eips|length }}</span><span class="stat-sub">${{ "%.0f"|format(eip_cost) }}/mês</span></div>
+  <div class="stat-card orange"><span class="stat-label">Snapshots antigos (+90d)</span><span class="stat-value">{{ snaps|length }}</span><span class="stat-sub">${{ "%.0f"|format(snap_cost) }}/mês</span></div>
+</div>
+
+<!-- Unattached Volumes -->
+{% if vols %}
+<div class="card" style="margin-bottom:20px">
+  <div class="card-header">
+    <span class="card-title">Volumes EBS Desanexados</span>
+    <span class="badge badge-red">{{ vols|length }} volumes — ${{ "%.0f"|format(vol_cost) }}/mês</span>
+  </div>
+  <div class="alert alert-warning">⚠️ Verifique com os donos antes de deletar. Podem conter dados importantes.</div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Volume ID</th><th>Região</th><th>Tamanho</th><th>Tipo</th><th>Criado</th><th>Custo/mês</th></tr></thead>
+      <tbody>
+        {% for v in vols %}
+        <tr>
+          <td style="font-family:monospace;font-size:12px">{{ v.volume_id }}</td>
+          <td><span class="tag">{{ v.region }}</span></td>
+          <td>{{ v.size_gb }} GB</td>
+          <td>{{ v.type }}</td>
+          <td style="font-size:12px;color:var(--text-light)">{{ v.created[:10] }}</td>
+          <td style="color:var(--critical);font-weight:600">${{ "%.2f"|format(v.estimated_monthly_cost) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="action-cli" style="margin-top:12px"># Deletar volume (confirme antes!)
+aws ec2 delete-volume --volume-id vol-XXXXXXXX --region us-east-1</div>
+</div>
+{% endif %}
+
+<!-- Unused EIPs -->
+{% if eips %}
+<div class="card" style="margin-bottom:20px">
+  <div class="card-header">
+    <span class="card-title">Elastic IPs Não Associados</span>
+    <span class="badge badge-red">{{ eips|length }} EIPs — ${{ "%.0f"|format(eip_cost) }}/mês</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>IP</th><th>Allocation ID</th><th>Região</th><th>Custo/mês</th></tr></thead>
+      <tbody>
+        {% for e in eips %}
+        <tr>
+          <td style="font-family:monospace">{{ e.ip }}</td>
+          <td style="font-family:monospace;font-size:12px">{{ e.allocation_id }}</td>
+          <td><span class="tag">{{ e.region }}</span></td>
+          <td style="color:var(--critical);font-weight:600">${{ "%.2f"|format(e.estimated_monthly_cost) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="action-cli" style="margin-top:12px"># Liberar EIP
+aws ec2 release-address --allocation-id eipalloc-XXXXXXXX --region us-east-1</div>
+</div>
+{% endif %}
+
+<!-- Old Snapshots -->
+{% if snaps %}
+<div class="card" style="margin-bottom:20px">
+  <div class="card-header">
+    <span class="card-title">Snapshots com +90 dias</span>
+    <span class="badge badge-orange">{{ snaps|length }} snapshots — ${{ "%.0f"|format(snap_cost) }}/mês</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Snapshot ID</th><th>Região</th><th>Tamanho</th><th>Criado</th><th>Descrição</th><th>Custo/mês</th></tr></thead>
+      <tbody>
+        {% for s in snaps[:50] %}
+        <tr>
+          <td style="font-family:monospace;font-size:12px">{{ s.snapshot_id }}</td>
+          <td><span class="tag">{{ s.region }}</span></td>
+          <td>{{ s.size_gb }} GB</td>
+          <td style="font-size:12px;color:var(--text-light)">{{ s.created[:10] }}</td>
+          <td style="font-size:12px;color:var(--text-light)">{{ s.description[:40] }}{% if s.description|length > 40 %}...{% endif %}</td>
+          <td style="color:var(--high);font-weight:600">${{ "%.2f"|format(s.estimated_monthly_cost) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- Idle Load Balancers -->
+{% if lbs %}
+<div class="card" style="margin-bottom:20px">
+  <div class="card-header">
+    <span class="card-title">Load Balancers sem Targets Saudáveis</span>
+    <span class="badge badge-red">{{ lbs|length }} LBs — ${{ "%.0f"|format(lb_cost) }}/mês</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Nome</th><th>Tipo</th><th>Região</th><th>Custo/mês</th></tr></thead>
+      <tbody>
+        {% for lb in lbs %}
+        <tr>
+          <td style="font-weight:500">{{ lb.name }}</td>
+          <td><span class="tag">{{ lb.type }}</span></td>
+          <td><span class="tag">{{ lb.region }}</span></td>
+          <td style="color:var(--critical);font-weight:600">${{ "%.2f"|format(lb.estimated_monthly_cost) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- Stopped instances -->
+{% if stopped %}
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Instâncias EC2 Paradas</span>
+    <span class="badge badge-navy">{{ stopped|length }} instâncias</span>
+  </div>
+  <p style="font-size:13px;color:var(--text-light);margin-bottom:12px">
+    Instâncias paradas não cobram por compute, mas ainda cobram por EBS e Elastic IPs associados.
+  </p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Instance ID</th><th>Nome</th><th>Tipo</th><th>Região</th><th>Launch Time</th></tr></thead>
+      <tbody>
+        {% for i in stopped %}
+        <tr>
+          <td style="font-family:monospace;font-size:12px">{{ i.instance_id }}</td>
+          <td style="font-weight:500">{{ i.name }}</td>
+          <td><span class="tag">{{ i.instance_type }}</span></td>
+          <td><span class="tag">{{ i.region }}</span></td>
+          <td style="font-size:12px;color:var(--text-light)">{{ i.launch_time[:10] }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

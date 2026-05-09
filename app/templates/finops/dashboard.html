@@ -1,0 +1,769 @@
+{% extends "base.html" %}
+{% block title %}FinOps — {{ client.company }}{% endblock %}
+{% block topbar_title %}💰 FinOps — {{ client.company }}{% endblock %}
+
+{% block sidebar_nav %}
+<nav>
+  <div class="sidebar-section">Admin</div>
+  <a href="/admin"><span class="icon">🏠</span> Dashboard</a>
+  <a href="/admin/clients/{{ client.id }}"><span class="icon">👤</span> {{ client.company }}</a>
+  <div class="sidebar-section">FinOps</div>
+  <a href="/finops/{{ client.id }}" class="active"><span class="icon">📊</span> Visão Geral</a>
+  <a href="/finops/{{ client.id }}/quick-wins"><span class="icon">⚡</span> Quick Wins</a>
+  <a href="/finops/{{ client.id }}/projects"><span class="icon">🗂️</span> Projetos</a>
+  <a href="/finops/{{ client.id }}/unused-resources"><span class="icon">🗑️</span> Recursos Ociosos</a>
+  <a href="/finops/{{ client.id }}/correlations"><span class="icon">🔗</span> Mapa de Correlações</a>
+  <div class="sidebar-section">Segurança</div>
+  <a href="/security/{{ client.id }}"><span class="icon">🔒</span> Visão Geral</a>
+  <a href="/security/{{ client.id }}/quick-wins"><span class="icon">⚡</span> Quick Wins</a>
+  <a href="/security/{{ client.id }}/projects"><span class="icon">🗂️</span> Projetos</a>
+  <a href="/security/{{ client.id }}/findings"><span class="icon">🔍</span> Findings</a>
+  <div class="sidebar-section">Recursos</div>
+  <a href="/static/docs/cloud-sentinel-documentation.html" target="_blank"><span class="icon">📄</span> Documentação</a>
+</nav>
+{% endblock %}
+
+{% block topbar_right %}
+<a href="/admin/clients/{{ client.id }}" class="btn btn-outline btn-sm">← Admin</a>
+<a href="/security/{{ client.id }}" class="btn btn-navy btn-sm">🔒 Segurança</a>
+{% endblock %}
+
+{% block content %}
+{% if not report %}
+<div class="empty-state card">
+  <div class="icon">📊</div>
+  <h3>Nenhuma análise disponível</h3>
+  <p>Inicie uma análise na página do cliente.</p>
+  <br><a href="/admin/clients/{{ client.id }}" class="btn btn-primary">Ir para o cliente</a>
+</div>
+{% else %}
+
+{% set fin = report.rightsizing_recommendations or {} %}
+{% set _mm = fin.maturity_model or {} %}
+{% set mm_pct = ((_mm.overall_score or 0) * 10) | int %}
+{% set chs = fin.cost_health_score or 0 %}
+{% set finops_score = ((chs * 0.6 + mm_pct * 0.4) | round | int) %}
+{% set finops_label = 'Excelente' if finops_score >= 80 else ('Bom' if finops_score >= 60 else ('Regular' if finops_score >= 40 else ('Fraco' if finops_score >= 20 else 'Crítico'))) %}
+
+<!-- Summary alert -->
+{% if fin.executive_summary %}
+<div class="alert alert-info" style="margin-bottom:20px">
+  <span style="font-size:18px">🤖</span>
+  <div><strong>Análise Claude AI:</strong> {{ fin.executive_summary }}</div>
+</div>
+{% endif %}
+
+<!-- Top stats -->
+<div class="stats-grid">
+  <div class="stat-card navy">
+    <span class="stat-label">Custo Mensal Atual</span>
+    <span class="stat-value">${{ "%.0f"|format(report.monthly_cost or 0) }}</span>
+    <span class="stat-sub">Último mês completo</span>
+  </div>
+  <div class="stat-card green">
+    <span class="stat-label">Economia Potencial</span>
+    <span class="stat-value">${{ "%.0f"|format(report.potential_savings or 0) }}</span>
+    <span class="stat-sub">{{ "%.1f"|format(report.savings_percentage or 0) }}% do custo atual</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-label">Quick Wins</span>
+    <span class="stat-value">{{ (report.quick_wins or [])|selectattr('area', 'ne', 'security')|list|length }}</span>
+    <span class="stat-sub">Ações de baixo esforço</span>
+  </div>
+  <div class="stat-card orange">
+    <span class="stat-label">Projetos</span>
+    <span class="stat-value">{{ (report.projects or [])|selectattr('area', 'ne', 'security')|list|length }}</span>
+    <span class="stat-sub">Iniciativas estratégicas</span>
+  </div>
+</div>
+
+<!-- Cost Trend & Forecast (Section E) -->
+{% set ct = fin.cost_trend or {} %}
+{% if ct and ct.status %}
+<div class="card" style="margin-bottom:24px;border-left:4px solid {% if ct.status == 'alerta' %}#dc2626{% elif ct.status == 'atenção' %}#d97706{% elif ct.status == 'otimizando' %}#16a34a{% else %}#6b7280{% endif %}">
+  <div class="card-header">
+    <span class="card-title">
+      {% if ct.status == 'alerta' %}📈{% elif ct.status == 'otimizando' %}📉{% elif ct.status == 'atenção' %}⚠️{% else %}📊{% endif %}
+      Tendência de Custos
+    </span>
+    {% if ct.status == 'alerta' %}
+    <span class="badge badge-red">{{ ct.status|capitalize }}</span>
+    {% elif ct.status == 'atenção' %}
+    <span class="badge" style="background:#fef9c3;color:#854d0e;border:1px solid #fde047">{{ ct.status|capitalize }}</span>
+    {% elif ct.status == 'otimizando' %}
+    <span class="badge badge-green">{{ ct.status|capitalize }}</span>
+    {% else %}
+    <span class="badge badge-navy">{{ ct.status|capitalize }}</span>
+    {% endif %}
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;padding:0 20px 16px">
+    {% if ct.variacao_mom_pct is not none %}
+    <div style="background:var(--bg-hero);border-radius:8px;padding:12px;text-align:center">
+      <div style="font-size:11px;font-weight:600;color:var(--text-light);margin-bottom:4px">VARIAÇÃO MÊS A MÊS</div>
+      <div style="font-size:22px;font-weight:700;color:{% if ct.variacao_mom_pct > 5 %}#dc2626{% elif ct.variacao_mom_pct < -3 %}#16a34a{% else %}var(--navy){% endif %}">
+        {% if ct.variacao_mom_pct > 0 %}+{% endif %}{{ "%.1f"|format(ct.variacao_mom_pct) }}%
+      </div>
+    </div>
+    {% endif %}
+    {% if ct.custo_medio_ultimos_3m %}
+    <div style="background:var(--bg-hero);border-radius:8px;padding:12px;text-align:center">
+      <div style="font-size:11px;font-weight:600;color:var(--text-light);margin-bottom:4px">MÉDIA ÚLTIMOS 3M</div>
+      <div style="font-size:22px;font-weight:700;color:var(--navy)">${{ "%.0f"|format(ct.custo_medio_ultimos_3m) }}</div>
+    </div>
+    {% endif %}
+    {% if ct.projecao_3_meses_usd %}
+    <div style="background:var(--bg-hero);border-radius:8px;padding:12px;text-align:center">
+      <div style="font-size:11px;font-weight:600;color:var(--text-light);margin-bottom:4px">PROJEÇÃO 3 MESES</div>
+      <div style="font-size:22px;font-weight:700;color:{% if ct.custo_medio_ultimos_3m and ct.projecao_3_meses_usd > ct.custo_medio_ultimos_3m * 1.05 %}#dc2626{% else %}var(--navy){% endif %}">${{ "%.0f"|format(ct.projecao_3_meses_usd) }}</div>
+    </div>
+    {% endif %}
+  </div>
+  {% if ct.diagnostico %}
+  <div style="margin:0 20px 16px;background:rgba(11,25,86,0.04);border-radius:8px;padding:12px 16px;font-size:13px;line-height:1.6;color:var(--navy-mid)">{{ ct.diagnostico }}</div>
+  {% endif %}
+  {% if ct.servicos_crescendo %}
+  <div style="margin:0 20px 16px">
+    <div style="font-size:11px;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Serviços com Crescimento</div>
+    {% for sc in ct.servicos_crescendo %}
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border-color);{% if loop.last %}border-bottom:none{% endif %}">
+      <div>
+        <span style="font-weight:600;font-size:13px">{{ sc.servico }}</span>
+        {% if sc.usage_type_ofensor %}<span style="font-size:11px;color:var(--text-light);margin-left:6px;font-family:monospace">{{ sc.usage_type_ofensor }}</span>{% endif %}
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        {% if sc.crescimento_pct %}<span style="color:#dc2626;font-weight:700">+{{ "%.1f"|format(sc.crescimento_pct) }}%</span>{% endif %}
+        {% if sc.custo_atual_usd %}<span style="color:var(--text-light);font-size:12px">${{ "%.0f"|format(sc.custo_atual_usd) }}/mês</span>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- FinOps Score + Savings Breakdown -->
+<div class="grid-2" style="margin-bottom:24px">
+  <div class="card" style="border-left:4px solid {% if finops_score >= 80 %}var(--low){% elif finops_score >= 60 %}var(--info){% elif finops_score >= 40 %}var(--medium){% elif finops_score >= 20 %}var(--high){% else %}var(--critical){% endif %}">
+    <div class="card-header"><span class="card-title">FinOps Score</span></div>
+    <div style="display:flex;align-items:center;gap:24px">
+      <div class="score-circle score-{% if finops_score >= 80 %}excellent{% elif finops_score >= 60 %}good{% elif finops_score >= 40 %}fair{% elif finops_score >= 20 %}poor{% else %}critical{% endif %}">
+        <span class="score-number">{{ finops_score }}</span>
+        <span class="score-label">/ 100</span>
+      </div>
+      <div>
+        <div style="font-size:18px;font-weight:700;color:{% if finops_score >= 80 %}var(--low){% elif finops_score >= 60 %}var(--info){% elif finops_score >= 40 %}var(--medium){% elif finops_score >= 20 %}var(--high){% else %}var(--critical){% endif %}">{{ finops_label }}</div>
+        <div style="font-size:12px;color:var(--text-light);margin-top:4px">Analisado em {{ report.completed_at.strftime('%d/%m/%Y %H:%M') if report.completed_at }}</div>
+        <div style="margin-top:6px;font-size:11px;color:var(--text-light)">
+          Custo: {{ chs }}pts &nbsp;·&nbsp; Maturidade: {{ mm_pct }}pts
+        </div>
+        {% if fin.top_services_to_optimize %}
+        <div style="margin-top:10px">
+          <div style="font-size:11px;font-weight:600;color:var(--text-light);margin-bottom:6px">TOP SERVIÇOS PARA OTIMIZAR</div>
+          {% for s in fin.top_services_to_optimize %}
+          <span class="tag" style="margin:2px">{{ s }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {% if fin.savings_breakdown %}
+  <div class="card">
+    <div class="card-header"><span class="card-title">Breakdown das Economias</span></div>
+    {% for key, val in fin.savings_breakdown.items() %}
+    {% if val > 0 %}
+    <div style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+        <span style="font-weight:500;text-transform:capitalize">{{ key.replace('_', ' ') }}</span>
+        <span style="color:var(--low);font-weight:600">${{ "%.0f"|format(val) }}/mês</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" style="width:{{ [((val / (report.potential_savings or 1)) * 100)|int, 100]|min }}%"></div>
+      </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+
+<!-- O que está impactando o FinOps Score -->
+{% if finops_score < 100 %}
+<div class="card" style="margin-bottom:24px">
+  <div class="card-header" style="border-bottom:1px solid var(--border-color)">
+    <span class="card-title">📉 O que está impactando seu FinOps Score</span>
+    <span style="font-size:12px;color:var(--text-light)">Resolva nesta ordem para maximizar o score</span>
+  </div>
+  <div>
+
+    {% if fin.cost_anomalies_found %}
+    {% for a in fin.cost_anomalies_found %}
+    <div style="display:flex;align-items:center;gap:14px;padding:10px 20px;border-bottom:1px solid var(--border-color)">
+      <span class="sev sev-critical" style="min-width:60px;text-align:center;flex-shrink:0">ANOMALIA</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:13px;color:var(--navy)">Anomalia de custo — {{ a.service or 'serviço desconhecido' }}</div>
+        <div style="font-size:12px;color:var(--text-light)">{{ a.descricao or 'Gasto acima do esperado detectado' }}</div>
+      </div>
+      <span style="color:var(--critical);font-weight:700;font-size:13px;white-space:nowrap;flex-shrink:0">${{ "%.0f"|format(a.total_impact_usd or 0) }}/mês extra</span>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if fin.version_analysis %}
+    {% for v in fin.version_analysis %}
+    {% if v.upgrade_urgency == 'imediato' %}
+    <div style="display:flex;align-items:center;gap:14px;padding:10px 20px;border-bottom:1px solid var(--border-color)">
+      <span class="sev sev-critical" style="min-width:60px;text-align:center;flex-shrink:0">EOL</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:13px;color:var(--navy)">{{ v.resource_type }} em Extended Support — {{ v.resource_id }}</div>
+        <div style="font-size:12px;color:var(--text-light)">Versão {{ v.current_version }} → atualizar para {{ v.latest_version }} para eliminar custo adicional</div>
+      </div>
+      {% if v.estimated_extra_cost_monthly_usd %}
+      <span style="color:var(--critical);font-weight:700;font-size:13px;white-space:nowrap;flex-shrink:0">+${{ "%.0f"|format(v.estimated_extra_cost_monthly_usd) }}/mês</span>
+      {% endif %}
+    </div>
+    {% endif %}
+    {% endfor %}
+    {% endif %}
+
+    {% if _mm and _mm.dimensions %}
+    {% set dim_labels = {"tagging": "🏷️ Tagging sem cobertura adequada", "rightsizing": "⚖️ Instâncias sem rightsizing", "commitment_coverage": "📋 Sem Savings Plans / Reserved Instances", "waste_elimination": "🗑️ Recursos ociosos não eliminados", "governance": "🏛️ Governança de custos ausente"} %}
+    {% set dim_descs = {"tagging": "Sem tags não é possível alocar custos por projeto/equipe — aplicar política de tagging obrigatório", "rightsizing": "Instâncias superdimensionadas consumindo orçamento desnecessário — analisar métricas de CPU/memória", "commitment_coverage": "Pagando preço On-Demand para carga previsível — avaliar Savings Plans ou Reserved Instances", "waste_elimination": "Recursos parados gerando custo — revisar e remover EBS desanexados, IPs ociosos, snapshots antigos", "governance": "Sem orçamentos, alertas ou políticas de custo — configurar AWS Budgets e Cost Anomaly Detection"} %}
+    {% for dim_key, dim_label in dim_labels.items() %}
+    {% set dim = _mm.dimensions.get(dim_key, {}) %}
+    {% if dim and dim.level == 'Crawl' %}
+    <div style="display:flex;align-items:center;gap:14px;padding:10px 20px;border-bottom:1px solid var(--border-color)">
+      <span class="sev sev-high" style="min-width:60px;text-align:center;flex-shrink:0">CRAWL</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:13px;color:var(--navy)">{{ dim_label }}</div>
+        <div style="font-size:12px;color:var(--text-light)">{{ dim.justification or dim_descs[dim_key] }}</div>
+      </div>
+      <span style="color:var(--high);font-weight:700;font-size:13px;white-space:nowrap;flex-shrink:0">{{ dim.score or 0 }}/10</span>
+    </div>
+    {% elif dim and dim.level == 'Walk' %}
+    <div style="display:flex;align-items:center;gap:14px;padding:10px 20px;border-bottom:1px solid var(--border-color)">
+      <span class="sev sev-medium" style="min-width:60px;text-align:center;flex-shrink:0">WALK</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:13px;color:var(--navy)">{{ dim_label }}</div>
+        <div style="font-size:12px;color:var(--text-light)">{{ dim.justification or dim_descs[dim_key] }}</div>
+      </div>
+      <span style="color:var(--medium);font-weight:700;font-size:13px;white-space:nowrap;flex-shrink:0">{{ dim.score or 0 }}/10</span>
+    </div>
+    {% endif %}
+    {% endfor %}
+    {% endif %}
+
+    {% if fin.service_breakdown %}
+    {% for svc in fin.service_breakdown %}
+    {% if svc.severidade in ('critico', 'alto') and svc.acao_recomendada %}
+    <div style="display:flex;align-items:center;gap:14px;padding:10px 20px;border-bottom:1px solid var(--border-color)">
+      <span class="sev sev-{% if svc.severidade == 'critico' %}critical{% else %}high{% endif %}" style="min-width:60px;text-align:center;flex-shrink:0">{{ svc.severidade|upper }}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:13px;color:var(--navy)">{{ svc.servico }}{% if svc.ofensor_principal %} — <span style="font-family:monospace;font-size:11px">{{ svc.ofensor_principal }}</span>{% endif %}</div>
+        <div style="font-size:12px;color:var(--text-light)">{{ svc.acao_recomendada }}</div>
+      </div>
+      {% if svc.economia_estimada_usd %}
+      <span style="color:var(--low);font-weight:700;font-size:13px;white-space:nowrap;flex-shrink:0">${{ "%.0f"|format(svc.economia_estimada_usd) }}/mês</span>
+      {% elif svc.custo_periodo_usd %}
+      <span style="color:var(--critical);font-weight:700;font-size:13px;white-space:nowrap;flex-shrink:0">${{ "%.0f"|format(svc.custo_periodo_usd) }}</span>
+      {% endif %}
+    </div>
+    {% endif %}
+    {% endfor %}
+    {% endif %}
+
+  </div>
+  <div style="padding:10px 20px;background:var(--bg-hero);border-top:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center">
+    <span style="font-size:11px;color:var(--text-light)">FinOps Score = Custo (60%) + Maturidade (40%), calculado pelo Claude AI.</span>
+    <a href="/finops/{{ client.id }}/quick-wins" class="btn btn-outline btn-sm">Ver Quick Wins →</a>
+  </div>
+</div>
+{% endif %}
+
+<!-- Cost trend chart + Top services -->
+<div class="grid-2" style="margin-bottom:24px">
+  <div class="card">
+    <div class="card-header"><span class="card-title">Tendência de Custos (12 meses)</span></div>
+    <canvas id="costTrendChart" height="200"></canvas>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span class="card-title">Top Serviços por Custo</span></div>
+    <canvas id="serviceChart" height="200"></canvas>
+  </div>
+</div>
+
+<!-- Service Breakdown with UsageType (Section B) -->
+{% if fin.service_breakdown %}
+{% set _raw_cbu = report.raw_data.cost_by_usage_type if report.raw_data and report.raw_data.cost_by_usage_type else {} %}
+{% set _cbu_start = _raw_cbu.period.start[:7] if _raw_cbu.period and _raw_cbu.period.start else None %}
+<div class="card" style="margin-bottom:24px">
+  <div class="card-header">
+    <span class="card-title">🔍 Breakdown por Serviço e UsageType</span>
+    <div style="display:flex;gap:12px;align-items:center">
+      {% if _cbu_start %}<span style="font-size:12px;color:var(--text-light)">Período: {{ _cbu_start }}</span>{% endif %}
+      <span style="font-size:12px;color:var(--text-light)">{{ fin.service_breakdown|length }} serviços analisados</span>
+    </div>
+  </div>
+  {% for svc in fin.service_breakdown %}
+  <div style="margin:0 20px {% if not loop.last %}16px{% else %}20px{% endif %};border:1px solid var(--border-color);border-radius:8px;overflow:hidden">
+    <div style="background:{% if svc.severidade == 'critico' %}#fef2f2{% elif svc.severidade == 'alto' %}#fff7ed{% elif svc.severidade == 'medio' %}#fefce8{% else %}var(--bg-hero){% endif %};padding:12px 16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <div>
+        <span style="font-weight:700;font-size:14px;color:var(--navy)">{{ svc.servico }}</span>
+        {% if svc.ofensor_principal %}<span style="font-size:11px;color:var(--text-light);margin-left:8px;font-family:monospace">↳ {{ svc.ofensor_principal }}</span>{% endif %}
+        {% if svc.conta_principal %}<span class="tag" style="margin-left:8px;font-size:10px">{{ svc.conta_principal }}</span>{% endif %}
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <span class="sev sev-{% if svc.severidade == 'critico' %}critical{% elif svc.severidade == 'alto' %}high{% elif svc.severidade == 'medio' %}medium{% else %}low{% endif %}">{{ svc.severidade }}</span>
+        <div style="text-align:right">
+          <div style="font-weight:700;font-size:15px">${{ "%.2f"|format(svc.custo_periodo_usd or 0) }}</div>
+          {% if svc.percentual_do_total %}<div style="font-size:10px;color:var(--text-light)">{{ "%.1f"|format(svc.percentual_do_total) }}% do total</div>{% endif %}
+        </div>
+      </div>
+    </div>
+    {% if svc.itens_usage_type %}
+    <div class="table-wrap" style="margin:0">
+      <table style="font-size:12px">
+        <thead><tr><th>Usage Type</th><th style="text-align:right">Custo</th><th>Flag</th></tr></thead>
+        <tbody>
+          {% for item in svc.itens_usage_type %}
+          <tr>
+            <td style="font-family:monospace;font-size:11px">{{ item.usage_type }}</td>
+            <td style="text-align:right;font-weight:{% if loop.first %}700{% else %}400{% endif %}">${{ "%.2f"|format((item.custo_usd or item.cost_usd or 0)) }}</td>
+            <td>
+              {% if item.flag %}
+              <span class="badge {% if 'RI' in item.flag or 'SP' in item.flag %}badge-red{% elif 'antiga' in item.flag or 'idle' in item.flag %}badge-orange{% else %}badge-navy{% endif %}" style="font-size:10px">{{ item.flag }}</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+    {% if svc.acao_recomendada %}
+    <div style="padding:10px 16px;background:rgba(22,163,74,0.05);border-top:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;gap:12px">
+      <span style="font-size:12px;color:var(--navy-mid)">💡 {{ svc.acao_recomendada }}</span>
+      {% if svc.economia_estimada_usd %}<span style="color:#16a34a;font-weight:700;font-size:13px;white-space:nowrap">${{ "%.0f"|format(svc.economia_estimada_usd) }}/mês</span>{% endif %}
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Data Transfer Analysis (Section DT) -->
+{% set dt = fin.data_transfer_analysis or {} %}
+{% if dt and dt.total_data_transfer_out_usd and dt.total_data_transfer_out_usd > 0 %}
+{% set _dt_border = '#dc2626' if (dt.vpcs_sem_s3_endpoint or dt.vpcs_sem_dynamodb_endpoint) else '#d97706' %}
+<div class="card" style="margin-bottom:24px;border-left:4px solid {{ _dt_border }}">
+  <div class="card-header">
+    <span class="card-title">🌐 Análise de Data Transfer</span>
+    <div style="display:flex;gap:10px;align-items:center">
+      {% if dt.causa_provavel and dt.causa_provavel != 'nao_aplicavel' %}
+      <span class="badge badge-red" style="font-size:11px">{{ dt.causa_provavel|replace('_', ' ') }}</span>
+      {% endif %}
+      <span style="font-weight:700;color:var(--critical)">${{ "%.0f"|format(dt.total_data_transfer_out_usd) }}/mês saída</span>
+    </div>
+  </div>
+  <div style="padding:0 20px 16px">
+    {% if dt.diagnostico %}
+    <p style="font-size:13px;color:var(--text-mid);margin-bottom:12px">{{ dt.diagnostico }}</p>
+    {% endif %}
+
+    {% if dt.vpcs_sem_s3_endpoint %}
+    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px;margin-bottom:10px">
+      <div style="font-weight:700;font-size:13px;color:#dc2626;margin-bottom:6px">
+        ⚠️ {{ dt.vpcs_sem_s3_endpoint|length }} VPC(s) sem S3 Gateway Endpoint
+        <span style="font-weight:400;font-size:11px;color:var(--text-light);margin-left:6px">Gateway Endpoints são gratuitos</span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        {% for v in dt.vpcs_sem_s3_endpoint %}
+        <span class="tag" style="font-family:monospace;font-size:11px;background:#fee2e2;color:#dc2626">{{ v }}</span>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if dt.vpcs_sem_dynamodb_endpoint %}
+    <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:12px;margin-bottom:10px">
+      <div style="font-weight:700;font-size:13px;color:#d97706;margin-bottom:6px">
+        ⚠️ {{ dt.vpcs_sem_dynamodb_endpoint|length }} VPC(s) sem DynamoDB Gateway Endpoint
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        {% for v in dt.vpcs_sem_dynamodb_endpoint %}
+        <span class="tag" style="font-family:monospace;font-size:11px;background:#fde68a;color:#92400e">{{ v }}</span>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if dt.recomendacoes %}
+    <div style="display:flex;flex-direction:column;gap:8px">
+      {% for r in dt.recomendacoes %}
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;background:rgba(22,163,74,0.05);border:1px solid var(--border-color);border-radius:6px;padding:10px 14px">
+        <div>
+          <span style="font-size:12.5px;color:var(--navy-mid)">💡 {{ r.acao }}</span>
+          {% if r.custo_endpoint %}<span style="font-size:11px;color:var(--text-light);margin-left:6px">{{ r.custo_endpoint }}</span>{% endif %}
+          <span class="badge badge-navy" style="font-size:10px;margin-left:6px">esforço: {{ r.esforco }}</span>
+        </div>
+        {% if r.economia_estimada_usd %}<span style="color:#16a34a;font-weight:700;font-size:13px;white-space:nowrap">${{ "%.0f"|format(r.economia_estimada_usd) }}/mês</span>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Quick wins preview -->
+{% if report.quick_wins %}
+{% set finops_qw = [] %}
+{% for qw in report.quick_wins %}{% if qw.get('area') != 'security' %}{% set _ = finops_qw.append(qw) %}{% endif %}{% endfor %}
+{% if finops_qw %}
+<div class="card" style="margin-bottom:24px">
+  <div class="card-header">
+    <span class="card-title">⚡ Quick Wins Principais</span>
+    <a href="/finops/{{ client.id }}/quick-wins" class="btn btn-outline btn-sm">Ver todos</a>
+  </div>
+  {% for qw in finops_qw[:3] %}
+  <div class="action-card">
+    <div class="action-card-header">
+      <span class="action-card-title">{{ qw.title }}</span>
+      {% if qw.estimated_savings_monthly %}<span style="color:var(--low);font-weight:700;font-size:14px">${{ "%.0f"|format(qw.estimated_savings_monthly) }}/mês</span>{% endif %}
+    </div>
+    <div class="action-meta">
+      <span class="tag">⏱️ {{ qw.effort_hours }}h</span>
+      <span class="tag sev-{{ qw.risk or 'low' }}">Risco: {{ qw.risk or 'N/A' }}</span>
+      <span class="tag">{{ qw.category or '' }}</span>
+      {% if qw.account_id %}
+      <span class="tag" style="font-family:monospace;font-size:10px;color:var(--navy-mid)">🏦 {{ qw.account_id }}</span>
+      {% endif %}
+    </div>
+    <p style="font-size:13px;color:var(--text-light)">{{ qw.description }}</p>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endif %}
+
+<!-- Maturity Model (Item 13) -->
+{% set mm = fin.maturity_model %}
+{% if mm and mm.dimensions %}
+<div class="card" style="margin-bottom:24px">
+  <div class="card-header">
+    <span class="card-title">📈 Maturidade FinOps por Dimensão</span>
+    {% if mm.overall_maturity %}
+    <span class="badge {% if mm.overall_maturity == 'Run' %}badge-green{% elif mm.overall_maturity == 'Walk' %}badge-navy{% else %}badge-red{% endif %}">
+      Nível Geral: {{ mm.overall_maturity }}
+    </span>
+    {% endif %}
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px">
+    {% set dim_labels = {"tagging": "🏷️ Tagging", "rightsizing": "⚖️ Rightsizing", "commitment_coverage": "📋 Commitment Coverage", "waste_elimination": "🗑️ Waste Elimination", "governance": "🏛️ Governance"} %}
+    {% for dim_key, dim_label in dim_labels.items() %}
+    {% set dim = mm.dimensions.get(dim_key, {}) %}
+    {% if dim %}
+    <div style="background:var(--bg-hero);border-radius:10px;padding:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-size:13px;font-weight:600;color:var(--navy)">{{ dim_label }}</span>
+        <span class="badge {% if dim.level == 'Run' %}badge-green{% elif dim.level == 'Walk' %}badge-navy{% else %}badge-red{% endif %}">
+          {{ dim.level or 'N/A' }} · {{ dim.score or 0 }}/10
+        </span>
+      </div>
+      <div class="progress-bar" style="margin-bottom:6px">
+        <div class="progress-fill" style="width:{{ ((dim.score or 0) * 10)|int }}%"></div>
+      </div>
+      <p style="font-size:11px;color:var(--text-light);line-height:1.4">{{ dim.justification or '' }}</p>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+  {% if mm.next_step %}
+  <div style="background:rgba(255,103,154,0.06);border-left:4px solid var(--pink);border-radius:6px;padding:10px 14px">
+    <span style="font-size:11px;font-weight:700;color:var(--pink);text-transform:uppercase;letter-spacing:.5px">Próximo Passo</span>
+    <p style="font-size:13px;color:var(--navy);margin-top:3px">{{ mm.next_step }}</p>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- Combined Analysis (Item 14) -->
+{% set ca = report.combined_analysis %}
+{% if ca and ca.matriz_prioridades %}
+<div class="card" style="margin-bottom:24px">
+  <div class="card-header">
+    <span class="card-title">🔀 Análise Cruzada FinOps + Segurança</span>
+    <span style="font-size:12px;color:var(--text-light)">Prioridades combinadas por impacto</span>
+  </div>
+  {% if ca.resumo_executivo %}
+  <div style="background:var(--bg-hero);border-radius:8px;padding:12px 16px;font-size:13px;line-height:1.6;color:var(--navy-mid);margin-bottom:16px">
+    {{ ca.resumo_executivo }}
+  </div>
+  {% endif %}
+  <div style="font-size:12px;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Matriz de Prioridades</div>
+  {% for item in ca.matriz_prioridades[:5] %}
+  <div class="action-card" style="border-left:3px solid {% if item.impacto == 'crítico' %}var(--critical){% elif item.impacto == 'alto' %}var(--high){% else %}var(--medium){% endif %}">
+    <div class="action-card-header">
+      <div>
+        <span style="font-size:11px;color:var(--text-light);font-weight:600">#{{ item.rank }}</span>
+        <span class="action-card-title" style="margin-left:6px">{{ item.titulo }}</span>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
+        <span class="sev sev-{% if item.impacto == 'crítico' %}critical{% elif item.impacto == 'alto' %}high{% else %}medium{% endif %}">{{ item.impacto }}</span>
+        <span class="badge badge-navy">{{ item.tipo }}</span>
+        {% if item.custo_mensal_usd %}<span style="color:var(--critical);font-weight:700;font-size:13px">${{ "%.0f"|format(item.custo_mensal_usd) }}/mês</span>{% endif %}
+      </div>
+    </div>
+    <p style="font-size:12.5px;color:var(--text-light);margin-bottom:6px">{{ item.descricao }}</p>
+    {% if item.proximos_passos %}
+    <ul class="action-steps">
+      {% for s in item.proximos_passos[:2] %}<li>{{ s }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+  {% endfor %}
+  {% if ca.nivel_maturidade %}
+  <div style="margin-top:12px;font-size:12px;color:var(--text-light)">Nível de maturidade geral: <strong style="color:var(--navy)">{{ ca.nivel_maturidade }}</strong></div>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- Version Analysis -->
+{% if fin.version_analysis %}
+<div class="card" style="margin-bottom:24px">
+  <div class="card-header"><span class="card-title">🔖 Análise de Versões</span></div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Recurso</th><th>Tipo</th><th>Versão Atual</th><th>Versão Mais Recente</th><th>Status</th><th>Custo Extra/mês</th><th>Urgência</th></tr>
+      </thead>
+      <tbody>
+        {% for v in fin.version_analysis %}
+        <tr>
+          <td style="font-family:monospace;font-size:12px">{{ v.resource_id }}</td>
+          <td><span class="tag">{{ v.resource_type }}</span></td>
+          <td style="font-family:monospace;font-size:12px;color:{% if v.status in ('extended_support','eol','deprecated') %}var(--critical){% elif v.status == 'approaching_eol' %}var(--medium){% else %}var(--low){% endif %}">{{ v.current_version }}</td>
+          <td style="font-family:monospace;font-size:12px;color:var(--low)">{{ v.latest_version }}</td>
+          <td>
+            <span class="sev sev-{% if v.status in ('extended_support','deprecated','eol') %}critical{% elif v.status == 'approaching_eol' %}medium{% else %}low{% endif %}">
+              {{ v.status|replace('_', ' ') }}
+            </span>
+          </td>
+          <td>{% if v.estimated_extra_cost_monthly_usd %}<span style="color:var(--critical);font-weight:600">${{ "%.0f"|format(v.estimated_extra_cost_monthly_usd) }}</span>{% else %}—{% endif %}</td>
+          <td><span class="badge {% if v.upgrade_urgency == 'imediato' %}badge-red{% elif v.upgrade_urgency == 'planejado' %}badge-orange{% else %}badge-navy{% endif %}">{{ v.upgrade_urgency or '—' }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- Cost Anomalies (Item 11) -->
+{% if fin.cost_anomalies_found %}
+<div class="card" style="margin-bottom:24px">
+  <div class="card-header">
+    <span class="card-title">🚨 Anomalias de Custo Detectadas</span>
+    <span class="badge badge-red">{{ fin.cost_anomalies_found|length }} anomalia(s)</span>
+  </div>
+  {% for a in fin.cost_anomalies_found %}
+  <div class="action-card" style="border-left:3px solid var(--critical)">
+    <div class="action-card-header">
+      <span class="action-card-title">{{ a.service or 'Serviço desconhecido' }}</span>
+      <span style="color:var(--critical);font-weight:700">${{ "%.2f"|format(a.total_impact_usd or 0) }} acima do esperado</span>
+    </div>
+    <div class="action-meta">
+      {% if a.start_date %}<span class="tag">Início: {{ a.start_date }}</span>{% endif %}
+      {% if a.expected_spend %}<span class="tag">Esperado: ${{ "%.2f"|format(a.expected_spend) }}</span>{% endif %}
+      {% if a.actual_spend %}<span class="tag" style="color:var(--critical)">Real: ${{ "%.2f"|format(a.actual_spend) }}</span>{% endif %}
+    </div>
+    <p style="font-size:12.5px;color:var(--text-light)">{{ a.descricao or '' }}</p>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Organizations per-account breakdown (Section C) -->
+{% set raw = report.raw_data or {} %}
+{% set linked = raw.linked_accounts or {} %}
+{% if linked.is_management_account and linked.cost_by_account %}
+<div class="card" style="margin-bottom:24px">
+  <div class="card-header">
+    <span class="card-title">🏢 AWS Organizations — Breakdown por Conta</span>
+    <span style="font-size:12px;color:var(--text-light)">{{ linked.cost_by_account|length }} contas vinculadas · Org: {{ linked.organization_id or '—' }}</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Conta</th><th>Account ID</th><th style="text-align:right">Custo Total</th><th>Top Serviços</th></tr>
+      </thead>
+      <tbody>
+        {% for acc in linked.cost_by_account %}
+        <tr>
+          <td style="font-weight:600">{{ acc.account_name or acc.account_id }}</td>
+          <td style="font-family:monospace;font-size:11px;color:var(--text-light)">{{ acc.account_id }}</td>
+          <td style="text-align:right;font-weight:700">${{ "%.0f"|format(acc.total_cost_usd or 0) }}</td>
+          <td>
+            {% for svc in (acc.top_services or [])[:3] %}
+            <span class="tag" style="font-size:10px;margin:2px">{{ svc.service.replace('Amazon ', '').replace('AWS ', '') }}: ${{ "%.0f"|format(svc.cost_usd) }}</span>
+            {% endfor %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- Service suggestions -->
+{% if fin.service_suggestions %}
+<div class="card" style="margin-bottom:24px">
+  <div class="card-header"><span class="card-title">💡 Sugestões de Serviços AWS</span></div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Serviço Atual</th><th>Sugestão</th><th>Motivo</th><th>Economia Est.</th><th>Complexidade</th></tr>
+      </thead>
+      <tbody>
+        {% for s in fin.service_suggestions %}
+        <tr>
+          <td style="font-weight:500">{{ s.current_service }}</td>
+          <td><span style="color:var(--pink);font-weight:600">{{ s.suggested_service }}</span></td>
+          <td style="font-size:12px;color:var(--text-light)">{{ s.reason }}</td>
+          <td><span style="color:var(--low);font-weight:600">{{ s.estimated_savings_percentage }}%</span></td>
+          <td>
+            <span class="sev sev-{% if s.migration_complexity == 'high' %}critical{% elif s.migration_complexity == 'medium' %}medium{% else %}low{% endif %}">
+              {{ s.migration_complexity }}
+            </span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+{% if report and report.cost_trend %}
+<script>
+const trendData = {{ report.cost_trend | tojson }};
+const serviceData = {{ (report.cost_by_service or []) | tojson }};
+
+// Cost trend chart
+if (trendData.length > 0) {
+  const ctx1 = document.getElementById('costTrendChart').getContext('2d');
+  new Chart(ctx1, {
+    type: 'line',
+    data: {
+      labels: trendData.map(d => (d.period || d.month || '').substring(0, 7)),
+      datasets: [{
+        label: 'Custo ($)',
+        data: trendData.map(d => d.cost.toFixed(2)),
+        borderColor: '#FF679A',
+        backgroundColor: 'rgba(255,103,154,0.1)',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.4,
+        pointBackgroundColor: '#FF679A',
+        pointRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { ticks: { callback: v => '$' + v.toLocaleString() }, grid: { color: '#EEF2F9' } },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+}
+
+// Service breakdown chart
+if (serviceData.length > 0) {
+  const top10 = serviceData.slice(0, 10);
+  const ctx2 = document.getElementById('serviceChart').getContext('2d');
+  new Chart(ctx2, {
+    type: 'bar',
+    data: {
+      labels: top10.map(s => s.service.replace('Amazon ', '').replace('AWS ', '')),
+      datasets: [{
+        label: 'Custo ($)',
+        data: top10.map(s => s.cost.toFixed(2)),
+        backgroundColor: [
+          '#0B1956','#FF679A','#3182CE','#38A169','#D69E2E',
+          '#DD6B20','#805AD5','#2B6CB0','#276749','#744210'
+        ],
+        borderRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { callback: v => '$' + v.toLocaleString() }, grid: { color: '#EEF2F9' } },
+        y: { grid: { display: false }, ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+}
+</script>
+{% endif %}
+{% endblock %}
+
+{% block tour_steps %}
+<script>
+window._pageTourSteps = [
+  {
+    selector: '.stats-grid',
+    title: 'Métricas FinOps',
+    desc: 'Custo mensal atual da conta AWS, economia potencial identificada pela IA, quantidade de quick wins disponíveis e número de projetos estratégicos recomendados.',
+    pos: 'bottom'
+  },
+  {
+    selector: '.alert-info',
+    title: 'Análise do Claude AI',
+    desc: 'Resumo executivo gerado pelo Claude com os principais pontos de atenção da conta: onde está o maior gasto, quais são as oportunidades mais relevantes e o diagnóstico geral.',
+    pos: 'bottom'
+  },
+  {
+    selector: '.card:nth-of-type(2)',
+    title: 'Tendência de Custo',
+    desc: 'Análise da evolução do custo nos últimos meses: variação mês a mês, custo médio, projeção para os próximos 3 meses e os serviços com maior crescimento de gasto.',
+    pos: 'bottom'
+  },
+  {
+    selector: '.card:nth-of-type(3)',
+    title: 'Breakdown por Serviço',
+    desc: 'Detalhamento do custo por serviço AWS com as linhas de cobrança (usage types) mais relevantes. Identifica o principal ofensor de custo dentro de cada serviço e a ação recomendada.',
+    pos: 'bottom'
+  },
+  {
+    selector: 'nav a[href$="/quick-wins"]',
+    title: 'Quick Wins',
+    desc: 'Ações de curto prazo que a equipe pode implementar em horas ou dias, com baixo risco e economia imediata. Ordenados por economia estimada mensal.',
+    pos: 'bottom'
+  },
+  {
+    selector: 'nav a[href$="/projects"]',
+    title: 'Projetos',
+    desc: 'Iniciativas estratégicas que demandam planejamento e coordenação — geralmente semanas ou meses. Trazem economias maiores mas requerem mais esforço e alinhamento de times.',
+    pos: 'bottom'
+  },
+  {
+    selector: 'nav a[href$="/unused-resources"]',
+    title: 'Recursos Ociosos',
+    desc: 'Inventário de recursos AWS que estão gerando custo sem uso: volumes EBS desanexados, Elastic IPs não associados, snapshots antigos e load balancers sem targets saudáveis.',
+    pos: 'bottom'
+  },
+];
+</script>
+{% endblock %}
