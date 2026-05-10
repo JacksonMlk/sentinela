@@ -1,0 +1,1621 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cloud Sentinel — Documentação Técnica v1</title>
+<style>
+  :root {
+    --navy: #0b1956;
+    --navy-light: #1a2f7a;
+    --pink: #e91e8c;
+    --pink-light: #f472b6;
+    --critical: #dc2626;
+    --high: #ea580c;
+    --medium: #d97706;
+    --low: #16a34a;
+    --info: #0284c7;
+    --bg: #f8f9fc;
+    --border: #e2e8f0;
+    --text: #1e293b;
+    --text-light: #64748b;
+    --white: #ffffff;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* ── COVER ── */
+  .cover {
+    background: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 60%, #2d1b69 100%);
+    color: white;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 60px 40px;
+    page-break-after: always;
+  }
+
+  .cover-logo {
+    font-size: 56px;
+    margin-bottom: 24px;
+  }
+
+  .cover-badge {
+    background: rgba(233,30,140,0.2);
+    border: 1px solid rgba(233,30,140,0.5);
+    color: var(--pink-light);
+    padding: 6px 20px;
+    border-radius: 30px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 24px;
+  }
+
+  .cover h1 {
+    font-size: 52px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    margin-bottom: 8px;
+  }
+
+  .cover h1 span { color: var(--pink-light); }
+
+  .cover-subtitle {
+    font-size: 20px;
+    color: rgba(255,255,255,0.65);
+    margin-bottom: 48px;
+    font-weight: 400;
+  }
+
+  .cover-divider {
+    width: 80px;
+    height: 4px;
+    background: linear-gradient(90deg, var(--pink), transparent);
+    border-radius: 2px;
+    margin: 0 auto 48px;
+  }
+
+  .cover-meta {
+    display: flex;
+    gap: 48px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .cover-meta-item { text-align: center; }
+  .cover-meta-item .label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.4); margin-bottom: 4px; }
+  .cover-meta-item .value { font-size: 15px; font-weight: 600; }
+
+  .cover-footer {
+    margin-top: 80px;
+    font-size: 12px;
+    color: rgba(255,255,255,0.3);
+  }
+
+  /* ── LAYOUT ── */
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 60px 40px;
+  }
+
+  /* ── TOC ── */
+  .toc {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 40px;
+    margin-bottom: 60px;
+    page-break-after: always;
+  }
+
+  .toc h2 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--navy);
+    margin-bottom: 28px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid var(--border);
+  }
+
+  .toc ol {
+    list-style: none;
+    counter-reset: toc;
+  }
+
+  .toc > ol > li {
+    counter-increment: toc;
+    margin-bottom: 8px;
+  }
+
+  .toc > ol > li > a {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    color: var(--navy);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 14px;
+    padding: 6px 0;
+  }
+
+  .toc > ol > li > a::before {
+    content: counter(toc, decimal-leading-zero);
+    font-size: 11px;
+    color: var(--pink);
+    font-weight: 800;
+    min-width: 28px;
+  }
+
+  .toc > ol > li > a::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px dotted var(--border);
+    margin: 0 8px;
+    align-self: center;
+  }
+
+  .toc-sub {
+    list-style: none;
+    padding-left: 36px;
+    margin-top: 4px;
+  }
+
+  .toc-sub li a {
+    color: var(--text-light);
+    text-decoration: none;
+    font-size: 13px;
+    padding: 2px 0;
+    display: block;
+  }
+
+  .toc-sub li a:hover { color: var(--navy); }
+
+  /* ── SECTIONS ── */
+  section {
+    margin-bottom: 64px;
+    page-break-inside: avoid;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 32px;
+    padding-bottom: 16px;
+    border-bottom: 3px solid var(--border);
+  }
+
+  .section-number {
+    background: linear-gradient(135deg, var(--navy), var(--navy-light));
+    color: white;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .section-header h2 {
+    font-size: 26px;
+    font-weight: 800;
+    color: var(--navy);
+  }
+
+  h3 {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--navy);
+    margin: 32px 0 12px;
+  }
+
+  h4 {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    margin: 20px 0 8px;
+  }
+
+  p { margin-bottom: 12px; color: var(--text); }
+
+  /* ── CARDS ── */
+  .card {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .stat-card {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    border-top: 4px solid var(--navy);
+  }
+
+  .stat-card.pink { border-top-color: var(--pink); }
+  .stat-card.critical { border-top-color: var(--critical); }
+  .stat-card.low { border-top-color: var(--low); }
+  .stat-card.medium { border-top-color: var(--medium); }
+
+  .stat-card .num { font-size: 36px; font-weight: 800; color: var(--navy); line-height: 1; margin-bottom: 4px; }
+  .stat-card.pink .num { color: var(--pink); }
+  .stat-card .lbl { font-size: 12px; color: var(--text-light); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* ── TABLES ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 24px;
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    font-size: 13px;
+  }
+
+  thead tr { background: var(--navy); color: white; }
+  thead th { padding: 12px 16px; text-align: left; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; }
+  tbody tr { border-bottom: 1px solid var(--border); }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--bg); }
+  tbody td { padding: 10px 16px; vertical-align: top; }
+  .td-label { font-weight: 600; color: var(--navy); }
+
+  /* ── BADGES ── */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .badge-critical { background: rgba(220,38,38,0.1); color: var(--critical); }
+  .badge-high { background: rgba(234,88,12,0.1); color: var(--high); }
+  .badge-medium { background: rgba(217,119,6,0.1); color: var(--medium); }
+  .badge-low { background: rgba(22,163,74,0.1); color: var(--low); }
+  .badge-info { background: rgba(2,132,199,0.1); color: var(--info); }
+  .badge-navy { background: rgba(11,25,86,0.1); color: var(--navy); }
+  .badge-pink { background: rgba(233,30,140,0.1); color: var(--pink); }
+
+  /* ── SCORE VISUAL ── */
+  .score-bar-wrap { margin-bottom: 20px; }
+  .score-bar-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .score-bar-track {
+    height: 12px;
+    background: var(--bg);
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .score-bar-fill {
+    height: 100%;
+    border-radius: 6px;
+    transition: width 0.3s;
+  }
+  .fill-green { background: linear-gradient(90deg, #16a34a, #4ade80); }
+  .fill-blue  { background: linear-gradient(90deg, var(--navy), var(--navy-light)); }
+  .fill-pink  { background: linear-gradient(90deg, var(--pink), var(--pink-light)); }
+  .fill-orange{ background: linear-gradient(90deg, #ea580c, #fb923c); }
+  .fill-red   { background: linear-gradient(90deg, #dc2626, #f87171); }
+
+  /* ── CALLOUTS ── */
+  .callout {
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 16px;
+    font-size: 13px;
+  }
+  .callout-tip   { background: rgba(22,163,74,0.06); border-left: 4px solid var(--low); }
+  .callout-warn  { background: rgba(217,119,6,0.08); border-left: 4px solid var(--medium); }
+  .callout-info  { background: rgba(2,132,199,0.07); border-left: 4px solid var(--info); }
+  .callout-navy  { background: rgba(11,25,86,0.05); border-left: 4px solid var(--navy); }
+  .callout strong { color: var(--navy); }
+
+  /* ── FORMULA BOX ── */
+  .formula {
+    background: var(--navy);
+    color: white;
+    border-radius: 10px;
+    padding: 20px 24px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    margin-bottom: 16px;
+    line-height: 1.8;
+  }
+  .formula .f-comment { color: rgba(255,255,255,0.4); }
+  .formula .f-highlight { color: var(--pink-light); font-weight: 700; }
+
+  /* ── MATURITY GRID ── */
+  .maturity-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .maturity-col {
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid var(--border);
+  }
+  .maturity-col.crawl { background: rgba(220,38,38,0.04); border-top: 4px solid var(--critical); }
+  .maturity-col.walk  { background: rgba(217,119,6,0.04);  border-top: 4px solid var(--medium); }
+  .maturity-col.run   { background: rgba(22,163,74,0.04);  border-top: 4px solid var(--low); }
+
+  .maturity-col h4 {
+    font-size: 13px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+  .maturity-col .score-range {
+    font-size: 11px;
+    color: var(--text-light);
+    margin-bottom: 12px;
+  }
+  .maturity-col ul {
+    list-style: none;
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--text);
+  }
+  .maturity-col ul li::before { content: "→ "; color: var(--text-light); }
+
+  /* ── DIMENSION CARD ── */
+  .dimension-card {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 14px;
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+  .dimension-card .dim-name {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--navy);
+    margin-bottom: 4px;
+  }
+  .dimension-card .dim-icon { font-size: 24px; margin-bottom: 6px; }
+  .dimension-card .dim-signal {
+    font-size: 11px;
+    color: var(--text-light);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .dimension-card .dim-detail { font-size: 13px; color: var(--text); line-height: 1.6; }
+  .dimension-card .dim-run {
+    margin-top: 8px;
+    font-size: 12px;
+    background: rgba(22,163,74,0.07);
+    border-left: 3px solid var(--low);
+    padding: 8px 12px;
+    border-radius: 0 6px 6px 0;
+  }
+  .dimension-card .dim-run strong { color: var(--low); }
+
+  /* ── FLOW ── */
+  .flow {
+    display: flex;
+    gap: 0;
+    align-items: stretch;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .flow-step {
+    flex: 1;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    font-size: 12px;
+    text-align: center;
+    min-width: 120px;
+    position: relative;
+  }
+  .flow-step .step-num {
+    background: var(--navy);
+    color: white;
+    font-size: 10px;
+    font-weight: 800;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 8px;
+  }
+  .flow-step .step-title { font-weight: 700; color: var(--navy); margin-bottom: 4px; font-size: 13px; }
+  .flow-step .step-desc { color: var(--text-light); }
+  .flow-arrow {
+    display: flex;
+    align-items: center;
+    color: var(--pink);
+    font-size: 20px;
+    padding: 0 4px;
+    align-self: center;
+  }
+
+  /* ── DIVIDER ── */
+  .page-break { page-break-before: always; }
+
+  /* ── PRINT ── */
+  @media print {
+    body { background: white; }
+    .container { padding: 20px; }
+    section { page-break-inside: avoid; }
+    .dimension-card { page-break-inside: avoid; }
+    table { page-break-inside: avoid; }
+  }
+
+  @page {
+    margin: 20mm 18mm;
+  }
+
+  /* ── CHECK/CROSS ── */
+  .check { color: var(--low); font-weight: 700; }
+  .cross { color: var(--critical); font-weight: 700; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════
+     CAPA
+════════════════════════════════════════════════════ -->
+<div class="cover">
+  <div class="cover-logo">🛡️</div>
+  <div class="cover-badge">Sentinela · Documentação Técnica</div>
+  <h1>Cloud <span>Sentinel</span></h1>
+  <p class="cover-subtitle">Plataforma de FinOps & Security Assessment para AWS</p>
+  <div class="cover-divider"></div>
+  <div class="cover-meta">
+    <div class="cover-meta-item">
+      <div class="label">Versão</div>
+      <div class="value">v1.0-beta</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="label">Data</div>
+      <div class="value">2026</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="label">Repositório</div>
+      <div class="value">github.com/jacksonmlk</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="label">Autor</div>
+      <div class="value">Jackson Santos</div>
+    </div>
+  </div>
+  <div class="cover-footer">Open Source · MIT License</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     ÍNDICE
+════════════════════════════════════════════════════ -->
+<div class="container">
+<div class="toc">
+  <h2>📋 Índice</h2>
+  <ol>
+    <li><a href="#s1">O que é o Cloud Sentinel</a></li>
+    <li><a href="#s2">Arquitetura da Plataforma</a></li>
+    <li><a href="#s3">Como Funciona uma Análise</a></li>
+    <li><a href="#s4">Score de Segurança</a>
+      <ul class="toc-sub">
+        <li><a href="#s4-calculo">Cálculo do Score</a></li>
+        <li><a href="#s4-checks">Verificações Realizadas</a></li>
+        <li><a href="#s4-impact">O que Impacta o Score (bloco do dashboard)</a></li>
+        <li><a href="#s4-100">Como Atingir 100</a></li>
+      </ul>
+    </li>
+    <li><a href="#s5">FinOps Score</a>
+      <ul class="toc-sub">
+        <li><a href="#s5-formula">Fórmula e Pesos</a></li>
+        <li><a href="#s5-cost-health">Componente 1: Cost Health (60%)</a></li>
+        <li><a href="#s5-maturity">Componente 2: Maturidade FinOps (40%)</a></li>
+        <li><a href="#s5-dims">As 5 Dimensões de Maturidade</a></li>
+        <li><a href="#s5-impact">O que Impacta o Score (bloco do dashboard)</a></li>
+        <li><a href="#s5-100">Como Atingir 100</a></li>
+      </ul>
+    </li>
+    <li><a href="#s6">Tendência de Custo</a></li>
+    <li><a href="#s7">Serviços AWS Analisados</a></li>
+    <li><a href="#s8">Quick Wins & Projetos</a></li>
+    <li><a href="#s9">Funcionalidades por Perfil</a></li>
+    <li><a href="#s10">Portal do Cliente</a></li>
+    <li><a href="#s11">Ferramentas Avançadas</a></li>
+    <li><a href="#s12">Versões e Deprecações</a></li>
+  </ol>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     S1 — O QUE É
+════════════════════════════════════════════════════ -->
+<section id="s1">
+  <div class="section-header">
+    <div class="section-number">01</div>
+    <h2>O que é o Cloud Sentinel</h2>
+  </div>
+
+  <p>O <strong>Cloud Sentinel</strong> é uma plataforma open source de assessments AWS. Ela coleta dados reais da conta AWS do cliente, processa-os com inteligência artificial (Claude da Anthropic) e entrega relatórios detalhados de <strong>custo</strong> (FinOps) e <strong>segurança</strong> — tudo em português, com foco em ação.</p>
+
+  <div class="card-grid">
+    <div class="stat-card pink">
+      <div class="num">20+</div>
+      <div class="lbl">Tipos de dado AWS coletados</div>
+    </div>
+    <div class="stat-card">
+      <div class="num">50+</div>
+      <div class="lbl">Verificações de segurança</div>
+    </div>
+    <div class="stat-card low">
+      <div class="num">5</div>
+      <div class="lbl">Dimensões de maturidade FinOps</div>
+    </div>
+    <div class="stat-card medium">
+      <div class="num">400+</div>
+      <div class="lbl">Checks via Prowler (opcional)</div>
+    </div>
+  </div>
+
+  <div class="callout callout-navy">
+    <strong>Proposta de valor:</strong> em vez de dashboards genéricos, o Cloud Sentinel entrega diagnóstico contextualizado por conta — incluindo quick wins priorizados por ROI, score de maturidade FinOps e score de segurança com detalhamento de cada finding.
+  </div>
+
+  <h3>Para quem é cada parte</h3>
+  <table>
+    <thead>
+      <tr><th>Perfil</th><th>O que acessa</th><th>URL</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="td-label">Admin / Consultor</td>
+        <td>Painel admin completo — cria clientes, dispara análises, edita recomendações, gera PDFs</td>
+        <td><code>/admin</code></td>
+      </tr>
+      <tr>
+        <td class="td-label">Cliente</td>
+        <td>Portal read-only com os resultados visíveis da análise mais recente — scores, quick wins, projetos</td>
+        <td><code>/portal/{token}</code></td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     S2 — ARQUITETURA
+════════════════════════════════════════════════════ -->
+<section id="s2">
+  <div class="section-header">
+    <div class="section-number">02</div>
+    <h2>Arquitetura da Plataforma</h2>
+  </div>
+
+  <div class="card">
+    <h4>Stack Tecnológico</h4>
+    <table>
+      <thead><tr><th>Camada</th><th>Tecnologia</th><th>Papel</th></tr></thead>
+      <tbody>
+        <tr><td class="td-label">Backend</td><td>FastAPI + Python 3.11</td><td>API REST + renderização server-side (SSR)</td></tr>
+        <tr><td class="td-label">Frontend</td><td>Jinja2 + Chart.js</td><td>Templates HTML renderizados no servidor, gráficos interativos</td></tr>
+        <tr><td class="td-label">Banco de dados</td><td>SQLite (via SQLAlchemy)</td><td>Armazena clientes, relatórios e rastreamento de itens</td></tr>
+        <tr><td class="td-label">Coleta AWS</td><td>boto3 (SDK Python)</td><td>Assume role nos clientes, coleta dados de 20+ serviços</td></tr>
+        <tr><td class="td-label">IA</td><td>Anthropic Claude (claude-opus-4-7)</td><td>Análise FinOps, segurança, maturity model e recomendações</td></tr>
+        <tr><td class="td-label">PDF</td><td>WeasyPrint</td><td>Geração de relatório mensal em PDF via HTML/CSS</td></tr>
+        <tr><td class="td-label">Segurança avançada</td><td>Prowler (opcional)</td><td>400+ checks CIS/NIST/SOC2/PCI-DSS</td></tr>
+        <tr><td class="td-label">Infra</td><td>EKS + ECR + ALB (AWS)</td><td>Container orquestrado em Kubernetes, imagem no ECR</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Modelo de Acesso à Conta do Cliente</h3>
+  <p>O Cloud Sentinel nunca armazena credenciais permanentes dos clientes. O acesso é feito via <strong>STS AssumeRole</strong>:</p>
+
+  <div class="flow">
+    <div class="flow-step">
+      <div class="step-num">1</div>
+      <div class="step-title">Pod no EKS</div>
+      <div class="step-desc">Usa IRSA para assumir <code>cloud-sentinel-role</code> na conta sandbox</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">
+      <div class="step-num">2</div>
+      <div class="step-title">STS AssumeRole</div>
+      <div class="step-desc">Assume <code>FinOpsAnalyzerRole</code> na conta do cliente via cross-account</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">
+      <div class="step-num">3</div>
+      <div class="step-title">Coleta de Dados</div>
+      <div class="step-desc">boto3 coleta dados de 20+ serviços com credenciais temporárias (1h)</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">
+      <div class="step-num">4</div>
+      <div class="step-title">Análise IA</div>
+      <div class="step-desc">Dados enviados ao Claude para análise FinOps + Segurança</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">
+      <div class="step-num">5</div>
+      <div class="step-title">Relatório</div>
+      <div class="step-desc">Resultados salvos no banco, visíveis no painel e portal</div>
+    </div>
+  </div>
+
+  <div class="callout callout-info">
+    <strong>Pré-requisito no cliente:</strong> a role <code>FinOpsAnalyzerRole</code> (ou nome customizado) deve ter trust policy autorizando a conta AWS que hospeda o Sentinela a fazer AssumeRole.
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     S3 — COMO FUNCIONA UMA ANÁLISE
+════════════════════════════════════════════════════ -->
+<section id="s3">
+  <div class="section-header">
+    <div class="section-number">03</div>
+    <h2>Como Funciona uma Análise</h2>
+  </div>
+
+  <p>Uma análise completa passa por <strong>6 etapas principais</strong>, exibidas em tempo real com progress bar no painel admin. Cada etapa tem nome, percentual e indicador visual.</p>
+
+  <table>
+    <thead>
+      <tr><th>#</th><th>Etapa</th><th>O que acontece</th><th>Duração Típica</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td class="td-label">Conexão AWS</td>
+        <td>STS AssumeRole valida o acesso à conta. Falha aqui = role incorreta ou sem trust policy</td>
+        <td>~2s</td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td class="td-label">Coleta de Dados</td>
+        <td>20+ coletores AWS rodam em paralelo (6 workers globais + 4 regionais). Cobre custos, segurança, utilização, versões</td>
+        <td>30–90s</td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td class="td-label">Análise FinOps (IA)</td>
+        <td>Claude analisa custos, gera maturity model, quick wins, projetos e resumo executivo de FinOps</td>
+        <td>30–120s</td>
+      </tr>
+      <tr>
+        <td>4</td>
+        <td class="td-label">Análise de Segurança (IA)</td>
+        <td>Claude analisa findings de IAM, S3, rede, criptografia, compliance, versões. Gera score e recomendações</td>
+        <td>30–120s</td>
+      </tr>
+      <tr>
+        <td>5</td>
+        <td class="td-label">Análise Combinada (IA)</td>
+        <td>Cruzamento FinOps × Segurança — identifica riscos que afetam custo E segurança ao mesmo tempo</td>
+        <td>20–60s</td>
+      </tr>
+      <tr>
+        <td>6</td>
+        <td class="td-label">Finalização</td>
+        <td>Dados persistidos no banco. Status: <code>completed</code> ou <code>partial</code> se alguma etapa IA falhou</td>
+        <td>~2s</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-warn">
+    <strong>Status "Parcial":</strong> ocorre quando as etapas AWS funcionam mas alguma chamada de IA falha (ex.: sem API key, timeout). Os dados brutos ainda ficam salvos — é possível executar "Somente IA" a partir do detalhe do cliente para completar sem reprocessar a AWS.
+  </div>
+
+  <h3>Paralelização da Coleta</h3>
+  <p>Para reduzir o tempo de coleta em contas com múltiplas regiões, os coletores são divididos em dois grupos paralelos:</p>
+
+  <div class="card">
+    <h4>Fase 1 — Coletores Globais (6 workers simultâneos)</h4>
+    <p>Cost Explorer, Savings Plans, Cost by Tag, IAM, S3, Trusted Advisor, Cost Anomalies</p>
+    <h4 style="margin-top:16px">Fase 2 — Coletores Regionais (4 workers por região)</h4>
+    <p>EC2 + CloudWatch, RDS, Lambda, ECS/EKS, NAT Gateway, Security Groups, GuardDuty, Config, CloudTrail, Encryption, CloudFront</p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     S4 — SCORE DE SEGURANÇA
+════════════════════════════════════════════════════ -->
+<section id="s4">
+  <div class="section-header">
+    <div class="section-number">04</div>
+    <h2>Score de Segurança</h2>
+  </div>
+
+  <h3 id="s4-calculo">Cálculo do Score</h3>
+  <p>O score vai de <strong>0 a 100</strong> e usa modelo de <strong>dedução por severidade</strong>. Começa em 100 e cada finding encontrado desconta pontos:</p>
+
+  <div class="formula">
+    <span class="f-comment"># Fórmula de cálculo</span><br>
+    score = 100<br>
+    score -= findings_critical × <span class="f-highlight">20</span>&nbsp;&nbsp;<span class="f-comment"># cada critical = -20 pts</span><br>
+    score -= findings_high     × <span class="f-highlight">10</span>&nbsp;&nbsp;<span class="f-comment"># cada high     = -10 pts</span><br>
+    score -= findings_medium   × <span class="f-highlight"> 5</span>&nbsp;&nbsp;<span class="f-comment"># cada medium   =  -5 pts</span><br>
+    score  = max(0, min(100, score))  <span class="f-comment"># clamp 0–100</span>
+  </div>
+
+  <table>
+    <thead><tr><th>Score</th><th>Rótulo</th><th>Interpretação</th></tr></thead>
+    <tbody>
+      <tr><td><strong>85 – 100</strong></td><td><span class="badge badge-low">Excelente</span></td><td>0 critical, 0–1 high, poucos medium. Conta bem gerenciada.</td></tr>
+      <tr><td><strong>70 – 84</strong></td><td><span class="badge badge-info">Bom</span></td><td>0 critical, até 3 high, alguns medium. Pontos de atenção tratáveis.</td></tr>
+      <tr><td><strong>50 – 69</strong></td><td><span class="badge badge-medium">Regular</span></td><td>0–1 critical ou muitos high/medium. Risco real mas gerenciável.</td></tr>
+      <tr><td><strong>30 – 49</strong></td><td><span class="badge badge-high">Ruim</span></td><td>1–2 critical ou alto volume high. Exposição significativa.</td></tr>
+      <tr><td><strong>0 – 29</strong></td><td><span class="badge badge-critical">Crítico</span></td><td>3+ critical. Conta com risco severo — ação imediata necessária.</td></tr>
+    </tbody>
+  </table>
+
+  <h3 id="s4-checks">Verificações Realizadas</h3>
+  <p>O Cloud Sentinel realiza verificações em <strong>8 categorias</strong>:</p>
+
+  <div class="card">
+    <h4>🔐 IAM — Gestão de Identidade</h4>
+    <table>
+      <thead><tr><th>Verificação</th><th>Severidade</th><th>Critério</th></tr></thead>
+      <tbody>
+        <tr><td>MFA da conta root desabilitado</td><td><span class="badge badge-critical">Critical</span></td><td>Root sem MFA ativo</td></tr>
+        <tr><td>Usuários IAM sem MFA</td><td><span class="badge badge-high">High</span></td><td>Usuário com acesso ao console e sem MFA</td></tr>
+        <tr><td>Chaves de acesso antigas</td><td><span class="badge badge-medium">Medium</span></td><td>Access key com mais de 90 dias sem rotação</td></tr>
+        <tr><td>Políticas com acesso total</td><td><span class="badge badge-high">High</span></td><td>Policy com <code>Action: *</code> + <code>Resource: *</code></td></tr>
+        <tr><td>Usuários inativos</td><td><span class="badge badge-low">Low</span></td><td>Senha não usada há mais de 90 dias</td></tr>
+        <tr><td>Password policy fraca</td><td><span class="badge badge-medium">Medium</span></td><td>Conta sem política de senha configurada</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h4>🪣 S3 — Armazenamento</h4>
+    <table>
+      <thead><tr><th>Verificação</th><th>Severidade</th><th>Critério</th></tr></thead>
+      <tbody>
+        <tr><td>Bucket com acesso público</td><td><span class="badge badge-critical">Critical</span></td><td>Qualquer um dos 4 flags de public access block desativado</td></tr>
+        <tr><td>Bucket sem criptografia</td><td><span class="badge badge-medium">Medium</span></td><td>SSE-S3 ou SSE-KMS não configurado</td></tr>
+        <tr><td>Bucket sem logging</td><td><span class="badge badge-low">Low</span></td><td>Access logging desabilitado</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h4>🌐 Rede — Security Groups & VPC</h4>
+    <table>
+      <thead><tr><th>Verificação</th><th>Severidade</th><th>Critério</th></tr></thead>
+      <tbody>
+        <tr><td>SSH aberto para internet</td><td><span class="badge badge-critical">Critical</span></td><td>SG com porta 22 aberta para <code>0.0.0.0/0</code></td></tr>
+        <tr><td>RDP aberto para internet</td><td><span class="badge badge-critical">Critical</span></td><td>SG com porta 3389 aberta para <code>0.0.0.0/0</code></td></tr>
+        <tr><td>Bancos de dados expostos</td><td><span class="badge badge-critical">Critical</span></td><td>Portas 3306, 5432, 27017, 6379, 9200 para <code>0.0.0.0/0</code></td></tr>
+        <tr><td>Regra "any port" aberta</td><td><span class="badge badge-high">High</span></td><td>SG com porta 0 (all traffic) para <code>0.0.0.0/0</code></td></tr>
+        <tr><td>VPC sem Flow Logs</td><td><span class="badge badge-medium">Medium</span></td><td>VPC sem logging de tráfego ativo</td></tr>
+        <tr><td>GuardDuty desabilitado</td><td><span class="badge badge-high">High</span></td><td>GuardDuty inativo em alguma região configurada</td></tr>
+        <tr><td>CloudTrail desabilitado</td><td><span class="badge badge-high">High</span></td><td>Trail não ativo ou sem multi-region logging</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h4>🔒 Criptografia — Dados em Repouso</h4>
+    <table>
+      <thead><tr><th>Verificação</th><th>Severidade</th><th>Critério</th></tr></thead>
+      <tbody>
+        <tr><td>Volumes EBS não criptografados</td><td><span class="badge badge-medium">Medium</span></td><td>Volume com flag <code>Encrypted = false</code></td></tr>
+        <tr><td>RDS sem criptografia</td><td><span class="badge badge-high">High</span></td><td>Instância RDS com <code>StorageEncrypted = false</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h4>📋 Compliance & Versões</h4>
+    <table>
+      <thead><tr><th>Verificação</th><th>Severidade</th><th>Critério</th></tr></thead>
+      <tbody>
+        <tr><td>Findings do Security Hub</td><td><span class="badge badge-critical">Critical</span> / <span class="badge badge-high">High</span></td><td>Status ACTIVE + NEW, top 50 findings</td></tr>
+        <tr><td>Regras AWS Config não conformes</td><td><span class="badge badge-medium">Medium</span></td><td>Regras com recursos NON_COMPLIANT</td></tr>
+        <tr><td>CloudFront sem WAF</td><td><span class="badge badge-medium">Medium</span></td><td>Distribution sem Web ACL associada</td></tr>
+        <tr><td>Lambda com runtime deprecated</td><td><span class="badge badge-high">High</span></td><td>python3.7-3.9, nodejs14-18, ruby2.7, dotnet6-7 etc.</td></tr>
+        <tr><td>RDS em extended support</td><td><span class="badge badge-medium">Medium</span></td><td>Versão MySQL 5.7, PostgreSQL 11-12 etc.</td></tr>
+        <tr><td>EKS com versão EOL</td><td><span class="badge badge-high">High</span></td><td>Kubernetes 1.25–1.28 (fim do suporte)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="s4-impact">O Bloco "O que está impactando seu Security Score"</h3>
+
+  <p>Logo abaixo do score no dashboard de segurança, o Cloud Sentinel exibe um bloco priorizado que lista cada finding com o impacto estimado em pontos. Não é preciso abrir a página de "Todos os Findings" para saber o que corrigir primeiro — o maior dreno de pontos aparece no topo.</p>
+
+  <table>
+    <thead><tr><th>Severidade</th><th>Finding</th><th>Dedução estimada</th></tr></thead>
+    <tbody>
+      <tr><td><span class="badge badge-critical">CRÍTICO</span></td><td>Root MFA desativado</td><td>−20 pts (item único)</td></tr>
+      <tr><td><span class="badge badge-critical">CRÍTICO</span></td><td>Políticas IAM com *:* (admin irrestrito)</td><td>−20 pts por policy</td></tr>
+      <tr><td><span class="badge badge-critical">CRÍTICO</span></td><td>Buckets S3 públicos</td><td>−20 pts por bucket</td></tr>
+      <tr><td><span class="badge badge-critical">CRÍTICO</span></td><td>Security Groups com 0.0.0.0/0</td><td>−20 pts por SG</td></tr>
+      <tr><td><span class="badge badge-high">ALTO</span></td><td>Instâncias RDS sem criptografia</td><td>−10 pts por instância</td></tr>
+      <tr><td><span class="badge badge-high">ALTO</span></td><td>GuardDuty ausente em regiões</td><td>−10 pts por região</td></tr>
+      <tr><td><span class="badge badge-high">ALTO</span></td><td>Buckets S3 sem criptografia</td><td>−10 pts por bucket</td></tr>
+      <tr><td><span class="badge badge-medium">MÉDIO</span></td><td>Usuários IAM sem MFA</td><td>−5 pts por usuário</td></tr>
+      <tr><td><span class="badge badge-medium">MÉDIO</span></td><td>Volumes EBS sem criptografia</td><td>−5 pts por volume</td></tr>
+      <tr><td><span class="badge badge-medium">MÉDIO</span></td><td>VPCs sem Flow Logs</td><td>−5 pts por VPC</td></tr>
+      <tr><td><span class="badge badge-medium">MÉDIO</span></td><td>Access keys com +90 dias sem rotação</td><td>−5 pts por chave</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-info">
+    Os pontos mostrados no bloco são <strong>estimativas baseadas na severidade</strong> do finding. O score final é calculado a partir das contagens totais de critical/high/medium retornadas pelo Claude AI — que pode classificar findings adicionais não listados acima. A lista serve como guia de priorização.
+  </div>
+
+  <h3 id="s4-100">Como Atingir Score 100</h3>
+
+  <div class="callout callout-tip">
+    <strong>Score 100 = zero findings critical, high e medium.</strong> Findings low não deduzem pontos mas ainda aparecem no relatório como boas práticas.
+  </div>
+
+  <p>Checklist priorizado para zerar o score (maior impacto primeiro):</p>
+
+  <table>
+    <thead><tr><th>Prioridade</th><th>Ação</th><th>Ganho</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Ativar MFA na conta root</td><td><span class="badge badge-critical">+20 pts</span></td></tr>
+      <tr><td>2</td><td>Remover políticas IAM com <code>Action: *</code> e <code>Resource: *</code></td><td><span class="badge badge-critical">+20 pts por policy</span></td></tr>
+      <tr><td>3</td><td>Bloquear acesso público em todos os buckets S3 (Block Public Access)</td><td><span class="badge badge-critical">+20 pts por bucket</span></td></tr>
+      <tr><td>4</td><td>Fechar portas SSH/RDP/DB abertas para 0.0.0.0/0 nos Security Groups</td><td><span class="badge badge-critical">+20 pts por SG</span></td></tr>
+      <tr><td>5</td><td>Criptografar instâncias RDS sem encryption at rest</td><td><span class="badge badge-high">+10 pts por instância</span></td></tr>
+      <tr><td>6</td><td>Ativar GuardDuty em todas as regiões utilizadas</td><td><span class="badge badge-high">+10 pts por região</span></td></tr>
+      <tr><td>7</td><td>Habilitar SSE-S3 ou SSE-KMS em todos os buckets S3</td><td><span class="badge badge-high">+10 pts por bucket</span></td></tr>
+      <tr><td>8</td><td>Ativar MFA em todos os usuários IAM com acesso ao console</td><td><span class="badge badge-medium">+5 pts por usuário</span></td></tr>
+      <tr><td>9</td><td>Rotacionar access keys com mais de 90 dias</td><td><span class="badge badge-medium">+5 pts por chave</span></td></tr>
+      <tr><td>10</td><td>Criptografar volumes EBS (ativar EBS Encryption by Default na conta)</td><td><span class="badge badge-medium">+5 pts por volume</span></td></tr>
+      <tr><td>11</td><td>Ativar VPC Flow Logs em todas as VPCs</td><td><span class="badge badge-medium">+5 pts por VPC</span></td></tr>
+      <tr><td>12</td><td>Migrar Lambdas e RDS com runtimes/versões deprecated</td><td><span class="badge badge-high">+10 pts por runtime</span></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     S5 — FINOPS SCORE
+════════════════════════════════════════════════════ -->
+<section id="s5" class="page-break">
+  <div class="section-header">
+    <div class="section-number">05</div>
+    <h2>FinOps Score</h2>
+  </div>
+
+  <p>O <strong>FinOps Score</strong> é um número único de <strong>0 a 100</strong> que resume a saúde financeira e a maturidade em gestão de nuvem do cliente. Ele é o único indicador de performance FinOps exibido no dashboard — consolidando o que antes eram dois scores separados (Cost Health Score e Maturity Model) em um único número acionável.</p>
+
+  <h3 id="s5-formula">Fórmula e Pesos</h3>
+
+  <p>O FinOps Score é uma <strong>média ponderada de dois componentes independentes</strong>:</p>
+
+  <div class="formula">
+    <span class="f-comment"># Componentes</span><br>
+    cost_health_score  = número inteiro gerado pelo Claude AI (0–100)<br>
+    maturity_pct       = overall_maturity_score × 10&nbsp;&nbsp;<span class="f-comment"># converte escala 0–10 → 0–100</span><br>
+    <br>
+    <span class="f-comment"># Score final</span><br>
+    finops_score = round( cost_health_score × <span class="f-highlight">0.6</span> + maturity_pct × <span class="f-highlight">0.4</span> )<br>
+    <br>
+    <span class="f-comment"># Custo tem peso 60%, Maturidade tem peso 40%</span><br>
+    <span class="f-comment"># Resultado: inteiro entre 0 e 100</span>
+  </div>
+
+  <p>O peso maior no componente de custo (60%) reflete que a <em>saúde financeira imediata</em> é mais urgente que a maturidade de processos. Um cliente pode ter bons processos mas custo fora de controle — nesse caso o score cai mesmo com maturidade alta.</p>
+
+  <h4 style="margin:20px 0 12px">Exemplos de Cálculo</h4>
+  <table>
+    <thead><tr><th>Situação</th><th>Cost Health</th><th>Maturidade (×10)</th><th>FinOps Score</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Conta otimizada, processos maduros</td>
+        <td>90 pts</td>
+        <td>80 pts (score 8/10)</td>
+        <td><strong>86</strong> &nbsp;<span class="badge badge-low">Excelente</span></td>
+      </tr>
+      <tr>
+        <td>Custo controlado, processos iniciais</td>
+        <td>75 pts</td>
+        <td>30 pts (score 3/10)</td>
+        <td><strong>57</strong> &nbsp;<span class="badge badge-medium">Regular</span></td>
+      </tr>
+      <tr>
+        <td>Desperdício alto, sem processos</td>
+        <td>30 pts</td>
+        <td>10 pts (score 1/10)</td>
+        <td><strong>22</strong> &nbsp;<span class="badge badge-high">Fraco</span></td>
+      </tr>
+      <tr>
+        <td>Crise financeira, sem maturidade</td>
+        <td>10 pts</td>
+        <td>0 pts</td>
+        <td><strong>6</strong> &nbsp;<span class="badge badge-critical">Crítico</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <table style="margin-top:24px">
+    <thead><tr><th>FinOps Score</th><th>Rótulo</th><th>Interpretação</th></tr></thead>
+    <tbody>
+      <tr><td><strong>80 – 100</strong></td><td><span class="badge badge-low">Excelente</span></td><td>Conta bem gerida — custo eficiente, sem desperdício relevante, processos maduros.</td></tr>
+      <tr><td><strong>60 – 79</strong></td><td><span class="badge badge-info">Bom</span></td><td>Boas práticas em andamento. Alguns pontos de otimização ainda a endereçar.</td></tr>
+      <tr><td><strong>40 – 59</strong></td><td><span class="badge badge-medium">Regular</span></td><td>Oportunidades relevantes identificadas em custo ou maturidade. Ação recomendada.</td></tr>
+      <tr><td><strong>20 – 39</strong></td><td><span class="badge badge-high">Fraco</span></td><td>Desperdício significativo ou imaturidade acentuada. Ação corretiva urgente.</td></tr>
+      <tr><td><strong>0 – 19</strong></td><td><span class="badge badge-critical">Crítico</span></td><td>Sem controle financeiro. Custo crescendo, sem processos, alto risco de overspend.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- ── COMPONENTE 1: COST HEALTH ── -->
+  <h3 id="s5-cost-health" style="margin-top:32px">Componente 1 — Cost Health Score (peso 60%)</h3>
+
+  <p>O <strong>Cost Health Score</strong> é gerado pelo <strong>Claude AI</strong> após analisar os dados brutos coletados da conta AWS. Não é uma fórmula fixa — é um juízo contextualizado sobre a saúde financeira atual: não apenas "quanto você gasta" mas "quanto você poderia economizar, qual é a tendência e você está pagando o preço certo".</p>
+
+  <p>O Claude considera os seguintes sinais para determinar o score:</p>
+
+  <div class="card-grid">
+    <div class="card" style="border-left:3px solid var(--pink)">
+      <h4>💸 Savings Potential</h4>
+      <p style="font-size:12px">Estimativa de quanto do custo atual poderia ser economizado com rightsizing, eliminação de desperdício e commitments. Potencial &gt;30% → score baixo. &lt;5% → score alto.</p>
+    </div>
+    <div class="card" style="border-left:3px solid var(--medium)">
+      <h4>📈 Tendência de Custo</h4>
+      <p style="font-size:12px">Variação mês a mês. Crescimento &gt;15% penaliza o score. Queda &gt;5% melhora. O Claude considera se o crescimento é justificado por crescimento do negócio ou desperdício.</p>
+    </div>
+    <div class="card" style="border-left:3px solid var(--info)">
+      <h4>📋 RI/SP Coverage</h4>
+      <p style="font-size:12px">Percentual do gasto coberto por Savings Plans ou Reserved Instances. Abaixo de 30% impacta negativamente — workloads previsíveis pagando preço On-Demand.</p>
+    </div>
+    <div class="card" style="border-left:3px solid var(--critical)">
+      <h4>🔖 Versões Deprecadas / EOL</h4>
+      <p style="font-size:12px">RDS em Extended Support e Lambdas com runtimes deprecated geram custo extra mensurável. Cada recurso nessa situação é cobrado a mais sem ganho de valor.</p>
+    </div>
+    <div class="card" style="border-left:3px solid var(--high)">
+      <h4>🗑️ Recursos Ociosos</h4>
+      <p style="font-size:12px">EBS desanexados, EIPs não associados, snapshots antigos, instâncias paradas e LBs sem targets — cada um é desperdício direto identificado nos dados coletados.</p>
+    </div>
+    <div class="card" style="border-left:3px solid var(--low)">
+      <h4>🚨 Anomalias de Custo</h4>
+      <p style="font-size:12px">Picos detectados pelo Cost Anomaly Detection nos últimos 30 dias. Anomalias não investigadas indicam falta de controle e impactam negativamente o score.</p>
+    </div>
+  </div>
+
+  <!-- ── COMPONENTE 2: MATURIDADE ── -->
+  <h3 id="s5-maturity" style="margin-top:32px">Componente 2 — Maturidade FinOps (peso 40%)</h3>
+
+  <p>O componente de maturidade avalia em que <em>estágio de evolução</em> está a gestão de custos do cliente — independente do valor absoluto do gasto. Um cliente pode gastar pouco mas sem nenhum processo (Crawl), ou gastar muito com processos excelentes (Run).</p>
+
+  <p>O Claude avalia <strong>5 dimensões independentes</strong>, cada uma com score <strong>0 a 10</strong>. A média das 5 dimensões forma o <code>overall_score</code> (0–10), multiplicado por 10 para obter a contribuição percentual:</p>
+
+  <div class="formula">
+    <span class="f-comment"># As 5 dimensões, cada uma de 0 a 10</span><br>
+    d1 = tagging_score<br>
+    d2 = rightsizing_score<br>
+    d3 = commitment_coverage_score<br>
+    d4 = waste_elimination_score<br>
+    d5 = governance_score<br>
+    <br>
+    overall_score = (d1 + d2 + d3 + d4 + d5) / 5&nbsp;&nbsp;<span class="f-comment"># média, resultado 0–10</span><br>
+    maturity_pct  = overall_score × 10&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="f-comment"># converte para 0–100</span><br>
+    <br>
+    <span class="f-comment"># Ex: scores [7, 4, 2, 8, 3] → overall = 4.8 → maturity_pct = 48</span>
+  </div>
+
+  <p>Cada dimensão recebe um nível qualitativo com base no score:</p>
+
+  <div class="maturity-grid">
+    <div class="maturity-col crawl">
+      <h4 style="color:var(--critical)">🐛 Crawl</h4>
+      <div class="score-range">Score da dimensão: 0 – 3</div>
+      <ul>
+        <li>Processos manuais ou inexistentes</li>
+        <li>Pouca ou nenhuma visibilidade</li>
+        <li>Nenhuma automação</li>
+        <li>Remediação reativa</li>
+      </ul>
+    </div>
+    <div class="maturity-col walk">
+      <h4 style="color:var(--medium)">🚶 Walk</h4>
+      <div class="score-range">Score da dimensão: 4 – 6</div>
+      <ul>
+        <li>Processos documentados e repetíveis</li>
+        <li>Visibilidade parcial</li>
+        <li>Algumas automações implantadas</li>
+        <li>Revisões periódicas acontecem</li>
+      </ul>
+    </div>
+    <div class="maturity-col run">
+      <h4 style="color:var(--low)">🏃 Run</h4>
+      <div class="score-range">Score da dimensão: 7 – 10</div>
+      <ul>
+        <li>Processos automatizados e otimizados</li>
+        <li>Visibilidade total em tempo real</li>
+        <li>Práticas de engenharia de custos</li>
+        <li>Remediação proativa e preventiva</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3 id="s5-dims">As 5 Dimensões Detalhadas</h3>
+
+  <div class="dimension-card">
+    <div>
+      <div class="dim-icon">🏷️</div>
+      <div class="dim-name">Tagging</div>
+      <div class="dim-signal">Sinal: tags ativas no Cost Explorer</div>
+    </div>
+    <div class="dim-detail">
+      Avalia a cobertura de tags de alocação de custo na conta. O Cloud Sentinel verifica quais chaves de tag de negócio estão ativas no Cost Explorer — tipicamente <code>Environment</code>, <code>Project</code> e <code>Team</code>.
+      <br><br>
+      <strong>Crawl (0–3):</strong> sem tags ou tagging inconsistente. Impossível alocar custo por projeto ou equipe.<br>
+      <strong>Walk (4–6):</strong> 1–2 chaves ativas, cobertura parcial dos recursos.<br>
+      <strong>Run (7–10):</strong> 3+ chaves de tag ativas no Cost Explorer, cobertura &gt;70% em recursos EC2, RDS, Lambda e ECS.
+    </div>
+  </div>
+
+  <div class="dimension-card">
+    <div>
+      <div class="dim-icon">⚖️</div>
+      <div class="dim-name">Rightsizing</div>
+      <div class="dim-signal">Sinal: CPU avg/max via CloudWatch (14 dias)</div>
+    </div>
+    <div class="dim-detail">
+      Avalia se os recursos estão dimensionados corretamente. Uma instância EC2 é considerada <em>superprovisionada</em> quando CPU médio &lt;10% <strong>E</strong> CPU máximo &lt;25% nos últimos 14 dias. RDS segue critério similar.
+      <br><br>
+      <strong>Crawl (0–3):</strong> &gt;40% das instâncias com utilização muito baixa.<br>
+      <strong>Walk (4–6):</strong> 20–40% superprovisionadas, rightsizing em andamento.<br>
+      <strong>Run (7–10):</strong> &lt;20% das instâncias superprovisionadas. Compute Optimizer em uso.
+    </div>
+  </div>
+
+  <div class="dimension-card">
+    <div>
+      <div class="dim-icon">💳</div>
+      <div class="dim-name">Commitment Coverage</div>
+      <div class="dim-signal">Sinal: Savings Plans coverage % via Cost Explorer</div>
+    </div>
+    <div class="dim-detail">
+      Avalia o uso de Savings Plans e Reserved Instances para reduzir custo de workloads previsíveis. O Cloud Sentinel coleta cobertura e utilização diretamente do Cost Explorer via API de Savings Plans.
+      <br><br>
+      <strong>Crawl (0–3):</strong> 0–10% de cobertura. Pagando On-Demand para toda a carga.<br>
+      <strong>Walk (4–6):</strong> 10–60% de cobertura com SPs ou RIs.<br>
+      <strong>Run (7–10):</strong> &gt;60% de cobertura e &gt;70% de utilização dos compromissos adquiridos.
+    </div>
+  </div>
+
+  <div class="dimension-card">
+    <div>
+      <div class="dim-icon">🗑️</div>
+      <div class="dim-name">Waste Elimination</div>
+      <div class="dim-signal">Sinal: inventário de recursos ociosos identificados</div>
+    </div>
+    <div class="dim-detail">
+      Avalia a presença de recursos pagos que não geram valor. O Cloud Sentinel identifica: volumes EBS desanexados, EIPs não associados, snapshots antigos (&gt;90 dias), instâncias paradas e Load Balancers sem targets saudáveis.
+      <br><br>
+      <strong>Crawl (0–3):</strong> custo de recursos ociosos &gt;$100/mês ou vários itens acumulados.<br>
+      <strong>Walk (4–6):</strong> alguns recursos identificados, remoção em andamento.<br>
+      <strong>Run (7–10):</strong> &lt;$20/mês em ociosos. Lifecycle policies e processo de revisão mensal ativos.
+    </div>
+  </div>
+
+  <div class="dimension-card">
+    <div>
+      <div class="dim-icon">🏛️</div>
+      <div class="dim-name">Governance</div>
+      <div class="dim-signal">Sinal: anomalias, Config, Trusted Advisor</div>
+    </div>
+    <div class="dim-detail">
+      Avalia a maturidade dos processos de governança — alertas, automações e visibilidade proativa. Considera: anomalias de custo nos últimos 30 dias, findings do Trusted Advisor e conformidade de regras do AWS Config.
+      <br><br>
+      <strong>Crawl (0–3):</strong> sem Cost Anomaly Detection ativo, múltiplas anomalias não tratadas, Config desabilitado.<br>
+      <strong>Walk (4–6):</strong> anomalias configuradas, alguns findings abertos, Trusted Advisor em uso básico.<br>
+      <strong>Run (7–10):</strong> &lt;2 anomalias/mês, todas investigadas, todas as regras Config em compliance.
+    </div>
+  </div>
+
+  <!-- ── BLOCO DE IMPACTO ── -->
+  <h3 id="s5-impact" style="margin-top:32px">O Bloco "O que está impactando seu FinOps Score"</h3>
+
+  <p>Logo abaixo do FinOps Score no dashboard, o Cloud Sentinel exibe automaticamente uma lista priorizada dos principais fatores que estão impedindo o score de chegar a 100. O objetivo é deixar explícito o que precisa ser resolvido — sem que o analista precise "caçar" o problema em páginas diferentes.</p>
+
+  <p>O bloco agrega itens de diferentes origens em ordem de impacto:</p>
+
+  <table>
+    <thead><tr><th>Label</th><th>Origem</th><th>O que significa</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="badge badge-critical">ANOMALIA</span></td>
+        <td>Cost Anomaly Detection</td>
+        <td>Pico de custo detectado nos últimos 30 dias — mostra serviço afetado e $ extra/mês</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-critical">EOL</span></td>
+        <td>Version Analysis</td>
+        <td>Recurso (RDS, EKS, Lambda) em Extended Support ou deprecated com custo extra identificado</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-high">CRAWL</span></td>
+        <td>Dimensão de maturidade com score 0–3</td>
+        <td>Dimensão sem práticas básicas — arrasta o componente de maturidade para baixo</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-medium">WALK</span></td>
+        <td>Dimensão de maturidade com score 4–6</td>
+        <td>Dimensão com práticas parciais — tem espaço relevante para evoluir</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-critical">CRÍTICO</span> / <span class="badge badge-high">ALTO</span></td>
+        <td>Service Breakdown (análise por serviço)</td>
+        <td>Serviço com severidade alta e ação recomendada — mostra economia estimada em $/mês</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-tip">
+    Cada item do bloco de impacto leva o analista diretamente à ação: qual serviço, qual o problema específico, qual a ação recomendada e qual o saving potencial. Resolver os itens no topo da lista tem o maior impacto no score.
+  </div>
+
+  <!-- ── COMO ATINGIR 100 ── -->
+  <h3 id="s5-100" style="margin-top:32px">Como Atingir FinOps Score 100</h3>
+
+  <div class="callout callout-tip">
+    <strong>Score 100 = Cost Health Score 100 + Maturidade 100.</strong> Para isso: zero desperdício, custo estável ou caindo, 100% de cobertura com SPs/RIs, todas as 5 dimensões de maturidade em nível Run.
+  </div>
+
+  <p>Roadmap priorizado por componente:</p>
+
+  <table>
+    <thead><tr><th>Prioridade</th><th>Ação</th><th>Impacto no Score</th><th>Esforço</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td>Investigar e eliminar anomalias de custo ativas</td>
+        <td>Cost Health ↑ significativo</td>
+        <td>Baixo (horas)</td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td>Atualizar recursos em Extended Support (RDS, EKS, Lambda runtimes)</td>
+        <td>Cost Health ↑ + elimina custo extra direto</td>
+        <td>Médio (semanas)</td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td>Comprar Savings Plans para carga base (Compute SP — mais flexível)</td>
+        <td>Cost Health ↑ + Commitment Coverage para Run</td>
+        <td>Baixo (decisão financeira)</td>
+      </tr>
+      <tr>
+        <td>4</td>
+        <td>Eliminar recursos ociosos (EBS, EIPs, snapshots antigos, instâncias paradas)</td>
+        <td>Cost Health ↑ + Waste Elimination para Run</td>
+        <td>Baixo (horas)</td>
+      </tr>
+      <tr>
+        <td>5</td>
+        <td>Redimensionar instâncias superprovisionadas (&lt;10% CPU médio)</td>
+        <td>Cost Health ↑ + Rightsizing para Run</td>
+        <td>Alto (requer aprovações)</td>
+      </tr>
+      <tr>
+        <td>6</td>
+        <td>Implementar política de tags obrigatórias e ativar chaves no Cost Explorer</td>
+        <td>Tagging para Run</td>
+        <td>Médio (1–2 semanas)</td>
+      </tr>
+      <tr>
+        <td>7</td>
+        <td>Ativar Cost Anomaly Detection + AWS Budgets com alertas SNS</td>
+        <td>Governance para Walk/Run</td>
+        <td>Baixo (configuração)</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     S6 — TENDÊNCIA DE CUSTO
+════════════════════════════════════════════════════ -->
+<section id="s6">
+  <div class="section-header">
+    <div class="section-number">06</div>
+    <h2>Tendência de Custo</h2>
+  </div>
+
+  <p>Além do FinOps Score, o dashboard exibe um indicador de <strong>tendência de custo</strong> — um status qualitativo que compara os 2 últimos meses completos e projeta os próximos 3 meses. A tendência é independente do score e serve como sinal de alarme precoce.</p>
+
+  <table>
+    <thead><tr><th>Status</th><th>Critério</th><th>Interpretação</th><th>Ação Recomendada</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="badge badge-critical">Alerta</span></td>
+        <td>Crescimento mês a mês &gt;15%</td>
+        <td>Custo aumentando rapidamente — pode indicar anomalia, novo workload ou desperdício</td>
+        <td>Investigar serviços crescendo, verificar anomalias</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-medium">Atenção</span></td>
+        <td>Crescimento 5–15%</td>
+        <td>Crescimento moderado — monitorar e entender drivers</td>
+        <td>Identificar serviços em crescimento e validar se é justificado</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-info">Estável</span></td>
+        <td>Variação &lt;5% (para cima ou baixo)</td>
+        <td>Custo controlado dentro do esperado</td>
+        <td>Manter práticas atuais</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-low">Otimizando</span></td>
+        <td>Queda &gt;5%</td>
+        <td>Ações de otimização estão gerando resultado mensurável</td>
+        <td>Continuar iniciativas em andamento</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>O card de tendência também exibe:</p>
+  <ul style="padding-left:18px;line-height:1.9;margin-top:8px">
+    <li><strong>Variação MoM (%):</strong> diferença percentual entre o mês atual e o anterior</li>
+    <li><strong>Média dos últimos 3 meses:</strong> baseline para comparação</li>
+    <li><strong>Projeção 3 meses:</strong> estimativa do custo futuro com base na tendência atual</li>
+    <li><strong>Serviços com crescimento:</strong> lista dos serviços que mais contribuíram para o aumento, com percentual e usage type ofensor</li>
+  </ul>
+
+  <div class="callout callout-info">
+    <strong>Relação com o FinOps Score:</strong> a tendência de custo é um dos sinais que o Claude considera ao calcular o Cost Health Score (componente de 60% do FinOps Score). Um status <em>Alerta</em> penaliza o Cost Health Score mesmo que outros fatores estejam bons.
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     S7 — SERVIÇOS AWS ANALISADOS
+════════════════════════════════════════════════════ -->
+<section id="s7" class="page-break">
+  <div class="section-header">
+    <div class="section-number">07</div>
+    <h2>Serviços AWS Analisados</h2>
+  </div>
+
+  <table>
+    <thead><tr><th>Serviço</th><th>O que é coletado</th><th>Dimensão</th></tr></thead>
+    <tbody>
+      <tr><td class="td-label">Cost Explorer</td><td>Custo mensal por serviço, por tag, por usage type, forecast, anomalias</td><td>FinOps</td></tr>
+      <tr><td class="td-label">Savings Plans</td><td>Coverage %, utilization %, detalhe por plano</td><td>FinOps</td></tr>
+      <tr><td class="td-label">EC2</td><td>Inventário, tipo, CloudWatch CPU/Rede (avg+max, 14d), SGs, EIPs, volumes, snapshots</td><td>FinOps + Segurança</td></tr>
+      <tr><td class="td-label">RDS</td><td>Instâncias, versão, CPU, storage, snapshots manuais, criptografia, versão EOL</td><td>FinOps + Segurança</td></tr>
+      <tr><td class="td-label">Lambda</td><td>Inventário, runtime, invocações 14d, duração, erros, custo, runtime deprecated</td><td>FinOps + Segurança</td></tr>
+      <tr><td class="td-label">S3</td><td>Buckets, public access block (4 flags), criptografia, logging, storage class, lifecycle</td><td>Segurança</td></tr>
+      <tr><td class="td-label">IAM</td><td>Usuários, MFA status, access keys (idade), políticas anexadas, root MFA, password policy</td><td>Segurança</td></tr>
+      <tr><td class="td-label">VPC / Security Groups</td><td>Regras de entrada por porta e CIDR, VPCs sem Flow Logs</td><td>Segurança</td></tr>
+      <tr><td class="td-label">CloudTrail</td><td>Status de logging, multi-region, log file validation</td><td>Segurança</td></tr>
+      <tr><td class="td-label">GuardDuty</td><td>Status do detector por região</td><td>Segurança</td></tr>
+      <tr><td class="td-label">Security Hub</td><td>Top 50 findings CRITICAL/HIGH ativos</td><td>Segurança</td></tr>
+      <tr><td class="td-label">AWS Config</td><td>Regras não conformes + contagem de recursos afetados</td><td>Segurança</td></tr>
+      <tr><td class="td-label">CloudFront</td><td>Distributions, WAF associado (ou ausente)</td><td>Segurança</td></tr>
+      <tr><td class="td-label">ECS / EKS</td><td>Clusters, tasks/services, modo Fargate/EC2, versão Kubernetes</td><td>FinOps + Segurança</td></tr>
+      <tr><td class="td-label">NAT Gateway</td><td>Custo mensal, bytes processados</td><td>FinOps</td></tr>
+      <tr><td class="td-label">Trusted Advisor</td><td>Checks de custo e segurança (graceful se plano Basic)</td><td>FinOps + Segurança</td></tr>
+      <tr><td class="td-label">Cost Anomaly Detection</td><td>Anomalias dos últimos 30 dias com impacto em $</td><td>FinOps</td></tr>
+      <tr><td class="td-label">Compute Optimizer</td><td>Recomendações de rightsizing EC2, Lambda, RDS</td><td>FinOps</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-info">
+    <strong>Coleta multi-região:</strong> coletores regionais rodam em paralelo para cada região configurada no cliente (campo "Regiões" no cadastro). Por padrão: <code>us-east-1</code>. Para contas com workloads em <code>sa-east-1</code>, basta adicionar a região no cadastro do cliente.
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     S8 — QUICK WINS & PROJETOS
+════════════════════════════════════════════════════ -->
+<section id="s8">
+  <div class="section-header">
+    <div class="section-number">08</div>
+    <h2>Quick Wins &amp; Projetos</h2>
+  </div>
+
+  <p>A IA classifica todas as recomendações em dois grupos: <strong>Quick Wins</strong> (alta relação impacto/esforço) e <strong>Projetos Estratégicos</strong> (maior complexidade). Ambos são gerados para FinOps e Segurança separadamente, mas exibidos de forma combinada no portal do cliente.</p>
+
+  <div class="card-grid">
+    <div class="card" style="border-top:4px solid var(--low)">
+      <h4>⚡ Quick Wins</h4>
+      <ul style="font-size:13px;line-height:1.8;color:var(--text-light);padding-left:16px">
+        <li>Implementáveis em horas ou poucos dias</li>
+        <li>ROI imediato — savings mensais estimados</li>
+        <li>Risco baixo ou médio</li>
+        <li>Categorias: compute, storage, network, database, commitments, version_upgrade, anomaly</li>
+      </ul>
+    </div>
+    <div class="card" style="border-top:4px solid var(--navy)">
+      <h4>🏗️ Projetos Estratégicos</h4>
+      <ul style="font-size:13px;line-height:1.8;color:var(--text-light);padding-left:16px">
+        <li>Esforço em semanas</li>
+        <li>Impacto estrutural (arquitetura, compliance, governança)</li>
+        <li>Exigem planejamento e aprovação</li>
+        <li>Categorias: architecture, commitments, compliance, monitoring</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>Rastreamento de Status</h3>
+  <p>Consultores podem marcar cada item com um dos três status:</p>
+  <table>
+    <thead><tr><th>Status</th><th>Significado</th></tr></thead>
+    <tbody>
+      <tr><td><span class="badge badge-navy">Pendente</span></td><td>Item identificado, ainda não iniciado</td></tr>
+      <tr><td><span class="badge badge-medium">Em andamento</span></td><td>Equipe do cliente implementando — monitorar</td></tr>
+      <tr><td><span class="badge badge-low">Concluído</span></td><td>Ação implementada e validada</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-navy">
+    <strong>Edição de itens:</strong> o consultor pode editar título, descrição, esforço estimado, risco e economia mensal de qualquer quick win ou projeto — permitindo calibrar as estimativas geradas pela IA com o contexto real do cliente.
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     S9 — FUNCIONALIDADES POR PERFIL
+════════════════════════════════════════════════════ -->
+<section id="s9" class="page-break">
+  <div class="section-header">
+    <div class="section-number">09</div>
+    <h2>Funcionalidades por Perfil</h2>
+  </div>
+
+  <table>
+    <thead><tr><th>Funcionalidade</th><th style="text-align:center">Admin</th><th style="text-align:center">Cliente (Portal)</th></tr></thead>
+    <tbody>
+      <tr><td>Ver relatório mais recente</td><td class="check" style="text-align:center">✓</td><td class="check" style="text-align:center">✓</td></tr>
+      <tr><td>Ver histórico de relatórios anteriores</td><td class="check" style="text-align:center">✓</td><td class="cross" style="text-align:center">✗</td></tr>
+      <tr><td>Disparar nova análise</td><td class="check" style="text-align:center">✓</td><td class="cross" style="text-align:center">✗</td></tr>
+      <tr><td>Cancelar análise em andamento</td><td class="check" style="text-align:center">✓</td><td class="cross" style="text-align:center">✗</td></tr>
+      <tr><td>Ver quick wins e projetos</td><td class="check" style="text-align:center">✓</td><td class="check" style="text-align:center">✓ (se habilitado)</td></tr>
+      <tr><td>Atualizar status de quick wins</td><td class="check" style="text-align:center">✓</td><td class="cross" style="text-align:center">✗</td></tr>
+      <tr><td>Editar / deletar itens</td><td class="check" style="text-align:center">✓</td><td class="cross" style="text-align:center">✗</td></tr>
+      <tr><td>Download PDF Mensal</td><td class="check" style="text-align:center">✓</td><td class="cross" style="text-align:center">✗</td></tr>
+      <tr><td>Download Assessment DOCX</td><td class="check" style="text-align:center">✓</td><td class="cross" style="text-align:center">✗</td></tr>
+      <tr><td>Ver dados AWS brutos</td><td class="check" style="text-align:center">✓</td><td class="cross" style="text-align:center">✗</td></tr>
+      <tr><td>Gerenciar clientes (CRUD)</td><td class="check" style="text-align:center">✓</td><td class="cross" style="text-align:center">✗</td></tr>
+      <tr><td>Agendar análises recorrentes</td><td class="check" style="text-align:center">✓</td><td class="cross" style="text-align:center">✗</td></tr>
+      <tr><td>Auditoria CloudTrail</td><td class="check" style="text-align:center">✓</td><td class="cross" style="text-align:center">✗</td></tr>
+      <tr><td>Scan Prowler</td><td class="check" style="text-align:center">✓</td><td class="cross" style="text-align:center">✗</td></tr>
+      <tr><td>Controlar visibilidade de seções</td><td class="check" style="text-align:center">✓</td><td class="cross" style="text-align:center">✗</td></tr>
+      <tr><td>Regenerar token de acesso do cliente</td><td class="check" style="text-align:center">✓</td><td class="cross" style="text-align:center">✗</td></tr>
+      <tr><td>Ver portfolio de todos os clientes</td><td class="check" style="text-align:center">✓</td><td class="cross" style="text-align:center">✗</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Visibilidade por Seção (Portal do Cliente)</h3>
+  <p>O consultor pode controlar individualmente quais seções o cliente vê no portal. Isso permite mostrar apenas o que está pronto e ocultar seções ainda em revisão:</p>
+
+  <table>
+    <thead><tr><th>Seção do Portal</th><th>Padrão</th></tr></thead>
+    <tbody>
+      <tr><td>Resumo executivo (scores)</td><td><span class="badge badge-low">Visível</span></td></tr>
+      <tr><td>Análise de custos mensais</td><td><span class="badge badge-low">Visível</span></td></tr>
+      <tr><td>Quick Wins FinOps</td><td><span class="badge badge-low">Visível</span></td></tr>
+      <tr><td>Projetos Estratégicos FinOps</td><td><span class="badge badge-low">Visível</span></td></tr>
+      <tr><td>Findings de Segurança</td><td><span class="badge badge-low">Visível</span></td></tr>
+      <tr><td>Quick Wins Segurança</td><td><span class="badge badge-low">Visível</span></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     S10 — PORTAL DO CLIENTE
+════════════════════════════════════════════════════ -->
+<section id="s10">
+  <div class="section-header">
+    <div class="section-number">10</div>
+    <h2>Portal do Cliente</h2>
+  </div>
+
+  <p>O cliente acessa o portal através de um <strong>token único</strong> gerado pelo sistema (link compartilhado pelo consultor). Não há senha — o token é suficiente para autenticação. O token pode ser regenerado a qualquer momento pelo admin.</p>
+
+  <h3>Páginas do Portal</h3>
+  <table>
+    <thead><tr><th>Página</th><th>URL</th><th>Conteúdo</th></tr></thead>
+    <tbody>
+      <tr>
+        <td class="td-label">Home</td>
+        <td><code>/portal/{token}</code></td>
+        <td>Visão geral: Cost Health Score, Security Score, indicador de análise em andamento</td>
+      </tr>
+      <tr>
+        <td class="td-label">FinOps</td>
+        <td><code>/portal/{token}/finops</code></td>
+        <td>Custo mensal, tendência, top serviços, savings potential, Maturity Model (5 dimensões)</td>
+      </tr>
+      <tr>
+        <td class="td-label">Segurança</td>
+        <td><code>/portal/{token}/security</code></td>
+        <td>Security score, findings por categoria, compliance status</td>
+      </tr>
+      <tr>
+        <td class="td-label">Quick Wins</td>
+        <td><code>/portal/{token}/quick-wins</code></td>
+        <td>Lista combinada FinOps + Segurança, filtráveis por tipo, com status e savings estimado</td>
+      </tr>
+      <tr>
+        <td class="td-label">Projetos</td>
+        <td><code>/portal/{token}/projects</code></td>
+        <td>Projetos estratégicos de médio/longo prazo, com esforço em semanas e business value</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     S11 — FERRAMENTAS AVANÇADAS
+════════════════════════════════════════════════════ -->
+<section id="s11">
+  <div class="section-header">
+    <div class="section-number">11</div>
+    <h2>Ferramentas Avançadas</h2>
+  </div>
+
+  <h3>🔍 Auditoria CloudTrail</h3>
+  <p>Ferramenta de investigação que lista <strong>todos os recursos criados na conta por usuários externos</strong>. Útil para detectar provisionamento não autorizado ou shadow IT.</p>
+
+  <div class="card">
+    <h4>Como funciona</h4>
+    <ul style="font-size:13px;line-height:1.9;color:var(--text);padding-left:16px">
+      <li>Consulta o <code>cloudtrail:LookupEvents</code> com filtro <code>ReadOnly=false</code></li>
+      <li>Filtra apenas eventos de <em>criação</em> (RunInstances, CreateBucket, CreateDBInstance, CreateFunction, etc. — 50+ event names)</li>
+      <li>Descarta eventos onde o ARN ou username contém o identificador do sistema configurado</li>
+      <li>Descarta chamadas que retornaram erro (recurso não criado efetivamente)</li>
+      <li>Range configurável: 1, 3, 7, 14 ou 30 dias</li>
+    </ul>
+  </div>
+
+  <div class="callout callout-warn">
+    <strong>Filtro por ARN:</strong> o sistema checa o ARN completo — não apenas o username. Assim, um usuário que acessa via role interna é corretamente identificado como sistema e ignorado.
+  </div>
+
+  <h3>🛡️ Prowler Integration</h3>
+  <p>Integração com o <a href="https://github.com/prowler-cloud/prowler" style="color:var(--navy)">Prowler</a> — ferramenta open-source de segurança que executa <strong>400+ verificações</strong> baseadas em benchmarks CIS, NIST, SOC2 e PCI-DSS.</p>
+
+  <div class="card">
+    <h4>Fluxo de execução</h4>
+    <ul style="font-size:13px;line-height:1.9;color:var(--text);padding-left:16px">
+      <li>Scan iniciado pelo consultor via botão no painel (POST <code>/admin/clients/{id}/prowler-scan</code>)</li>
+      <li>Execução em background thread — não bloqueia o servidor</li>
+      <li>Saída em formato JSON-OCSF (<code>--output-formats json-ocsf</code>)</li>
+      <li>Duração: 30–60 minutos (timeout máximo: 2h)</li>
+      <li>Página auto-refresh a cada 30s enquanto em andamento</li>
+      <li>Findings agrupados por severidade: Critical → High → Medium → Low → Info</li>
+      <li>Apenas findings com status <code>FAIL</code> são exibidos</li>
+    </ul>
+  </div>
+
+  <div class="callout callout-info">
+    <strong>Instalação:</strong> o Prowler é opcional e instalado separadamente (<code>pip install prowler</code>). Se não instalado, o botão aparece desabilitado com instrução de instalação.
+  </div>
+
+  <h3>📄 Relatório Mensal em PDF</h3>
+  <p>Gera um PDF profissional com dados do relatório mais recente, incluindo seções de custos e postura de segurança. Gerado server-side via <strong>WeasyPrint</strong> (sem necessidade de browser).</p>
+
+  <div class="card">
+    <h4>Seções do PDF</h4>
+    <table>
+      <thead><tr><th>#</th><th>Seção</th><th>Conteúdo</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Capa</td><td>Nome do cliente, período, data de geração</td></tr>
+        <tr><td>2</td><td>Resumo Executivo</td><td>4 KPIs: custo mensal, economia potencial, security score, previsão de custo</td></tr>
+        <tr><td>3</td><td>Análise de Custos</td><td>Comparativo mês anterior, gráfico de barras (6 meses), top 5 serviços</td></tr>
+        <tr><td>4</td><td>Postura de Segurança</td><td>Sumário de findings Prowler (se disponível), IAM highlights</td></tr>
+        <tr><td>5</td><td>Ações Recomendadas</td><td>Quick wins com savings estimado + projetos estratégicos</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     S12 — VERSÕES E DEPRECAÇÕES
+════════════════════════════════════════════════════ -->
+<section id="s12" class="page-break">
+  <div class="section-header">
+    <div class="section-number">12</div>
+    <h2>Versões e Deprecações</h2>
+  </div>
+
+  <p>O Cloud Sentinel mantém uma base de conhecimento interna com o status de suporte de todas as versões relevantes de serviços AWS gerenciados. Versões fora do suporte ativo geram findings automáticos e recomendações de upgrade.</p>
+
+  <h3>RDS — Versões Monitoradas</h3>
+  <table>
+    <thead><tr><th>Engine</th><th>Extended Support (pago)</th><th>Approaching EOL</th><th>Current</th></tr></thead>
+    <tbody>
+      <tr><td class="td-label">MySQL</td><td>5.7 (até fev/2027)</td><td>8.0 (até abr/2026)</td><td>8.4</td></tr>
+      <tr><td class="td-label">PostgreSQL</td><td>11, 12</td><td>13</td><td>14, 15, 16, 17</td></tr>
+      <tr><td class="td-label">Aurora MySQL</td><td>v2 (MySQL 5.7-compat)</td><td>—</td><td>v3 (MySQL 8.0-compat)</td></tr>
+      <tr><td class="td-label">Aurora PostgreSQL</td><td>11, 12</td><td>13</td><td>14, 15, 16</td></tr>
+      <tr><td class="td-label">MariaDB</td><td>10.3, 10.4</td><td>10.5</td><td>10.6, 10.11</td></tr>
+      <tr><td class="td-label">SQL Server</td><td>2017 (14.00)</td><td>2019 (15.00)</td><td>2022 (16.00)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-warn">
+    <strong>Custo do Extended Support:</strong> $0,12/vCPU-hora para instâncias em versões com suporte estendido. Os primeiros 12 meses após o EOL são gratuitos — depois a cobrança começa automaticamente. O Cloud Sentinel calcula o custo estimado extra e exibe na recomendação de upgrade.
+  </div>
+
+  <h3>Lambda — Runtimes</h3>
+  <table>
+    <thead><tr><th>Status</th><th>Runtimes</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="badge badge-critical">Deprecated</span></td>
+        <td><code>python3.7</code>, <code>python3.8</code>, <code>python3.9</code>, <code>nodejs14.x</code>, <code>nodejs16.x</code>, <code>nodejs18.x</code>, <code>ruby2.7</code>, <code>dotnet6</code>, <code>dotnet7</code>, <code>java8</code>, <code>go1.x</code></td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-low">Current</span></td>
+        <td><code>python3.10</code> – <code>3.13</code>, <code>nodejs20.x</code>, <code>nodejs22.x</code>, <code>java11</code>, <code>java17</code>, <code>java21</code>, <code>dotnet8</code>, <code>ruby3.2</code>, <code>ruby3.3</code>, <code>provided.al2</code>, <code>provided.al2023</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>EKS — Versões Kubernetes</h3>
+  <table>
+    <thead><tr><th>Status</th><th>Versões</th></tr></thead>
+    <tbody>
+      <tr><td><span class="badge badge-critical">EOL</span></td><td>1.25, 1.26, 1.27, 1.28 (fim de suporte: 2024–2025)</td></tr>
+      <tr><td><span class="badge badge-low">Current</span></td><td>1.29, 1.30, 1.31, 1.32</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>Recomendação geral:</strong> manter sempre a versão N-1 ou mais recente do Kubernetes no EKS para não entrar em período de suporte estendido. A AWS geralmente mantém ~4 versões simultaneamente com suporte padrão.
+  </div>
+
+</section>
+
+<!-- FOOTER -->
+<div style="margin-top:80px;padding-top:24px;border-top:2px solid var(--border);text-align:center;color:var(--text-light);font-size:12px;padding-bottom:40px">
+  <strong style="color:var(--navy)">Cloud Sentinel v1.0-beta</strong> &nbsp;·&nbsp; Jackson Santos &nbsp;·&nbsp; 2026<br>
+  <span style="font-size:11px">Open Source — MIT License</span>
+</div>
+
+</div><!-- /container -->
+</body>
+</html>
