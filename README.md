@@ -1,5 +1,7 @@
 # Sentinela — AWS FinOps & Security Platform
 
+![Status](https://img.shields.io/badge/status-beta-orange) ![Python](https://img.shields.io/badge/python-3.10+-blue) ![License](https://img.shields.io/badge/license-MIT-green)
+
 > Plataforma multi-tenant que analisa contas AWS com IA, entregando visibilidade de custos, postura de segurança e plano de ação priorizado em ~10 minutos.
 
 ---
