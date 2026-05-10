@@ -116,9 +116,30 @@
     <table style="font-size:13px">
       <tr><td style="color:var(--text-light);width:140px;padding:6px 0">Responsável</td><td style="padding:6px 0;font-weight:500">{{ client.name }}</td></tr>
       <tr><td style="color:var(--text-light);padding:6px 0">E-mail</td><td style="padding:6px 0">{{ client.email }}</td></tr>
-      <tr><td style="color:var(--text-light);padding:6px 0">AWS Account</td><td style="padding:6px 0;font-family:monospace">{{ client.aws_account_id or '—' }}</td></tr>
+      <tr><td style="color:var(--text-light);padding:6px 0">AWS Account</td><td style="padding:6px 0;font-family:monospace">
+        {% if client.account_mode == "standalone" and client.aws_role_arns %}
+          {% for entry in client.aws_role_arns %}
+            {% set acct_id = entry.arn.split(':')[4] if entry.arn and ':' in entry.arn else '' %}
+            {% if acct_id %}<span class="tag" style="font-family:monospace;font-size:11px;margin:2px">{{ acct_id }}</span>{% endif %}
+          {% endfor %}
+        {% else %}
+          {{ client.aws_account_id or '—' }}
+        {% endif %}
+      </td></tr>
       <tr><td style="color:var(--text-light);padding:6px 0">Regiões</td><td style="padding:6px 0">
-        {% for r in client.aws_regions.split(',') %}<span class="tag">{{ r.strip() }}</span> {% endfor %}
+        {% if client.account_mode == "standalone" and client.aws_role_arns %}
+          {% set ns = namespace(seen=[]) %}
+          {% for entry in client.aws_role_arns %}
+            {% for r in (entry.regions or 'us-east-1').split(',') %}
+              {% if r.strip() not in ns.seen %}
+                <span class="tag">{{ r.strip() }}</span>
+                {% set ns.seen = ns.seen + [r.strip()] %}
+              {% endif %}
+            {% endfor %}
+          {% endfor %}
+        {% else %}
+          {% for r in client.aws_regions.split(',') %}<span class="tag">{{ r.strip() }}</span> {% endfor %}
+        {% endif %}
       </td></tr>
       <tr><td style="color:var(--text-light);padding:6px 0">Status</td><td style="padding:6px 0">
         {% if client.is_active %}<span class="badge badge-green">Ativo</span>{% else %}<span class="badge badge-red">Inativo</span>{% endif %}
@@ -221,6 +242,12 @@
         <button type="submit" class="btn btn-outline btn-sm">▶ Continuar Análise IA</button>
       </form>
       {% endif %}
+      {% if latest_report.raw_data and latest_report.status in ('completed', 'partial') %}
+      <form method="POST" action="/admin/clients/{{ client.id }}/reanalyze-ai/{{ latest_report.id }}" style="display:inline"
+        onsubmit="return confirm('Re-analisar com IA vai refazer toda a análise usando os dados AWS já coletados (sem bater na AWS de novo). Leva ~3 minutos. Continua?')">
+        <button type="submit" class="btn btn-outline btn-sm" style="border-color:var(--info);color:var(--info)">🤖 Re-analisar com IA</button>
+      </form>
+      {% endif %}
     </div>
   </div>
   {% else %}
@@ -321,7 +348,14 @@
               onsubmit="return confirm('Continuar análise IA usando os dados já coletados?')">
               <button type="submit" class="btn btn-primary btn-sm">▶ Continuar IA</button>
             </form>
-            {% elif r.status in ('failed', 'cancelled') %}
+            {% endif %}
+            {% if r.raw_data and r.status in ('completed', 'partial') %}
+            <form method="POST" action="/admin/clients/{{ client.id }}/reanalyze-ai/{{ r.id }}" style="display:inline"
+              onsubmit="return confirm('Re-analisar com IA sem bater na AWS de novo?')">
+              <button type="submit" class="btn btn-outline btn-sm" title="Re-analisar com IA" style="border-color:var(--info);color:var(--info)">🤖</button>
+            </form>
+            {% endif %}
+            {% if r.status in ('failed', 'cancelled') %}
             <form method="POST" action="/admin/clients/{{ client.id }}/retry" style="display:inline">
               <button type="submit" class="btn btn-outline btn-sm">↺ Nova Análise</button>
             </form>

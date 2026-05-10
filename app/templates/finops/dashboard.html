@@ -45,6 +45,23 @@
 {% set finops_score = ((chs * 0.6 + mm_pct * 0.4) | round | int) %}
 {% set finops_label = 'Excelente' if finops_score >= 80 else ('Bom' if finops_score >= 60 else ('Regular' if finops_score >= 40 else ('Fraco' if finops_score >= 20 else 'Crítico'))) %}
 
+<!-- Account switcher (standalone multi-account only) -->
+{% if raw_d.account_mode == "standalone_multi" and raw_d.accounts_data %}
+<div id="fin-acct-switcher" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:20px;padding:14px 18px;background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow)">
+  <span style="font-size:11px;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:.5px;margin-right:4px">Conta:</span>
+  <button class="fin-acct-tab" data-acct="all" onclick="switchFinOpsAccount('all')"
+    style="padding:5px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--pink);background:var(--pink);color:#fff;transition:all .2s">
+    Consolidado
+  </button>
+  {% for acc in raw_d.accounts_data %}
+  <button class="fin-acct-tab" data-acct="{{ acc.account_id }}" onclick="switchFinOpsAccount('{{ acc.account_id }}')"
+    style="padding:5px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--blue-muted);background:transparent;color:var(--text-light);transition:all .2s;font-family:monospace">
+    {{ acc.account_id }}
+  </button>
+  {% endfor %}
+</div>
+{% endif %}
+
 <!-- Summary alert -->
 {% if fin.executive_summary %}
 <div class="alert alert-info" style="margin-bottom:20px">
@@ -54,15 +71,15 @@
 {% endif %}
 
 <!-- Top stats -->
-<div class="stats-grid">
+<div id="fin-stats-grid" class="stats-grid">
   <div class="stat-card navy">
     <span class="stat-label">Custo Mensal Atual</span>
-    <span class="stat-value">${{ "%.0f"|format(report.monthly_cost or 0) }}</span>
+    <span id="fin-stat-cost" class="stat-value">${{ "%.0f"|format(report.monthly_cost or 0) }}</span>
     <span class="stat-sub">Último mês completo</span>
   </div>
   <div class="stat-card green">
     <span class="stat-label">Economia Potencial</span>
-    <span class="stat-value">${{ "%.0f"|format(report.potential_savings or 0) }}</span>
+    <span id="fin-stat-savings" class="stat-value">${{ "%.0f"|format(report.potential_savings or 0) }}</span>
     <span class="stat-sub">{{ "%.1f"|format(report.savings_percentage or 0) }}% do custo atual</span>
   </div>
   <div class="stat-card">
@@ -89,7 +106,7 @@
     {% if ct.status == 'alerta' %}
     <span class="badge badge-red">{{ ct.status|capitalize }}</span>
     {% elif ct.status == 'atenção' %}
-    <span class="badge" style="background:#fef9c3;color:#854d0e;border:1px solid #fde047">{{ ct.status|capitalize }}</span>
+    <span class="badge" style="background:var(--badge-warn-bg);color:var(--badge-warn-color);border:1px solid var(--badge-warn-border)">{{ ct.status|capitalize }}</span>
     {% elif ct.status == 'otimizando' %}
     <span class="badge badge-green">{{ ct.status|capitalize }}</span>
     {% else %}
@@ -146,14 +163,14 @@
   <div class="card" style="border-left:4px solid {% if finops_score >= 80 %}var(--low){% elif finops_score >= 60 %}var(--info){% elif finops_score >= 40 %}var(--medium){% elif finops_score >= 20 %}var(--high){% else %}var(--critical){% endif %}">
     <div class="card-header"><span class="card-title">FinOps Score</span></div>
     <div style="display:flex;align-items:center;gap:24px">
-      <div class="score-circle score-{% if finops_score >= 80 %}excellent{% elif finops_score >= 60 %}good{% elif finops_score >= 40 %}fair{% elif finops_score >= 20 %}poor{% else %}critical{% endif %}">
+      <div id="fin-score-circle" class="score-circle score-{% if finops_score >= 80 %}excellent{% elif finops_score >= 60 %}good{% elif finops_score >= 40 %}fair{% elif finops_score >= 20 %}poor{% else %}critical{% endif %}">
         <span class="score-number">{{ finops_score }}</span>
         <span class="score-label">/ 100</span>
       </div>
       <div>
-        <div style="font-size:18px;font-weight:700;color:{% if finops_score >= 80 %}var(--low){% elif finops_score >= 60 %}var(--info){% elif finops_score >= 40 %}var(--medium){% elif finops_score >= 20 %}var(--high){% else %}var(--critical){% endif %}">{{ finops_label }}</div>
+        <div id="fin-score-label" style="font-size:18px;font-weight:700;color:{% if finops_score >= 80 %}var(--low){% elif finops_score >= 60 %}var(--info){% elif finops_score >= 40 %}var(--medium){% elif finops_score >= 20 %}var(--high){% else %}var(--critical){% endif %}">{{ finops_label }}</div>
         <div style="font-size:12px;color:var(--text-light);margin-top:4px">Analisado em {{ report.completed_at.strftime('%d/%m/%Y %H:%M') if report.completed_at }}</div>
-        <div style="margin-top:6px;font-size:11px;color:var(--text-light)">
+        <div id="fin-score-sub" style="margin-top:6px;font-size:11px;color:var(--text-light)">
           Custo: {{ chs }}pts &nbsp;·&nbsp; Maturidade: {{ mm_pct }}pts
         </div>
         {% if fin.top_services_to_optimize %}
@@ -308,7 +325,7 @@
   </div>
   {% for svc in fin.service_breakdown %}
   <div style="margin:0 20px {% if not loop.last %}16px{% else %}20px{% endif %};border:1px solid var(--border-color);border-radius:8px;overflow:hidden">
-    <div style="background:{% if svc.severidade == 'critico' %}#fef2f2{% elif svc.severidade == 'alto' %}#fff7ed{% elif svc.severidade == 'medio' %}#fefce8{% else %}var(--bg-hero){% endif %};padding:12px 16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+    <div style="background:{% if svc.severidade == 'critico' %}var(--sev-bg-critical){% elif svc.severidade == 'alto' %}var(--sev-bg-high){% elif svc.severidade == 'medio' %}var(--sev-bg-medium){% else %}var(--sev-bg-low){% endif %};padding:12px 16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
       <div>
         <span style="font-weight:700;font-size:14px;color:var(--navy)">{{ svc.servico }}</span>
         {% if svc.ofensor_principal %}<span style="font-size:11px;color:var(--text-light);margin-left:8px;font-family:monospace">↳ {{ svc.ofensor_principal }}</span>{% endif %}
@@ -373,27 +390,27 @@
     {% endif %}
 
     {% if dt.vpcs_sem_s3_endpoint %}
-    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px;margin-bottom:10px">
-      <div style="font-weight:700;font-size:13px;color:#dc2626;margin-bottom:6px">
+    <div style="background:var(--sev-bg-critical);border:1px solid var(--sev-bg-critical-border);border-radius:8px;padding:12px;margin-bottom:10px">
+      <div style="font-weight:700;font-size:13px;color:var(--critical);margin-bottom:6px">
         ⚠️ {{ dt.vpcs_sem_s3_endpoint|length }} VPC(s) sem S3 Gateway Endpoint
         <span style="font-weight:400;font-size:11px;color:var(--text-light);margin-left:6px">Gateway Endpoints são gratuitos</span>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:6px">
         {% for v in dt.vpcs_sem_s3_endpoint %}
-        <span class="tag" style="font-family:monospace;font-size:11px;background:#fee2e2;color:#dc2626">{{ v }}</span>
+        <span class="tag" style="font-family:monospace;font-size:11px;background:var(--dt-tag-critical-bg);color:var(--dt-tag-critical-color)">{{ v }}</span>
         {% endfor %}
       </div>
     </div>
     {% endif %}
 
     {% if dt.vpcs_sem_dynamodb_endpoint %}
-    <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:12px;margin-bottom:10px">
-      <div style="font-weight:700;font-size:13px;color:#d97706;margin-bottom:6px">
+    <div style="background:var(--sev-bg-high);border:1px solid var(--sev-bg-high-border);border-radius:8px;padding:12px;margin-bottom:10px">
+      <div style="font-weight:700;font-size:13px;color:var(--high);margin-bottom:6px">
         ⚠️ {{ dt.vpcs_sem_dynamodb_endpoint|length }} VPC(s) sem DynamoDB Gateway Endpoint
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:6px">
         {% for v in dt.vpcs_sem_dynamodb_endpoint %}
-        <span class="tag" style="font-family:monospace;font-size:11px;background:#fde68a;color:#92400e">{{ v }}</span>
+        <span class="tag" style="font-family:monospace;font-size:11px;background:var(--dt-tag-warning-bg);color:var(--dt-tag-warning-color)">{{ v }}</span>
         {% endfor %}
       </div>
     </div>
@@ -422,13 +439,13 @@
 {% set finops_qw = [] %}
 {% for qw in report.quick_wins %}{% if qw.get('area') != 'security' %}{% set _ = finops_qw.append(qw) %}{% endif %}{% endfor %}
 {% if finops_qw %}
-<div class="card" style="margin-bottom:24px">
+<div id="fin-qw-card" class="card" style="margin-bottom:24px">
   <div class="card-header">
     <span class="card-title">⚡ Quick Wins Principais</span>
     <a href="/finops/{{ client.id }}/quick-wins" class="btn btn-outline btn-sm">Ver todos</a>
   </div>
-  {% for qw in finops_qw[:3] %}
-  <div class="action-card">
+  {% for qw in finops_qw[:6] %}
+  <div class="action-card" data-qw-acct="{{ qw.account_id or '' }}">
     <div class="action-card-header">
       <span class="action-card-title">{{ qw.title }}</span>
       {% if qw.estimated_savings_monthly %}<span style="color:var(--low);font-weight:700;font-size:14px">${{ "%.0f"|format(qw.estimated_savings_monthly) }}/mês</span>{% endif %}
@@ -585,14 +602,19 @@
 </div>
 {% endif %}
 
-<!-- Organizations per-account breakdown (Section C) -->
+<!-- Per-account breakdown (Organizations or Standalone multi) -->
 {% set raw = report.raw_data or {} %}
 {% set linked = raw.linked_accounts or {} %}
-{% if linked.is_management_account and linked.cost_by_account %}
+{% if linked.cost_by_account and (linked.is_management_account or raw.account_mode == "standalone_multi") %}
 <div class="card" style="margin-bottom:24px">
   <div class="card-header">
+    {% if linked.is_management_account %}
     <span class="card-title">🏢 AWS Organizations — Breakdown por Conta</span>
     <span style="font-size:12px;color:var(--text-light)">{{ linked.cost_by_account|length }} contas vinculadas · Org: {{ linked.organization_id or '—' }}</span>
+    {% else %}
+    <span class="card-title">🏦 Multi-Conta — Breakdown de Custo por Conta</span>
+    <span style="font-size:12px;color:var(--text-light)">{{ linked.cost_by_account|length }} contas analisadas · Modo Standalone</span>
+    {% endif %}
   </div>
   <div class="table-wrap">
     <table>
@@ -651,6 +673,125 @@
 {% endblock %}
 
 {% block extra_scripts %}
+{% if raw_d.account_mode == "standalone_multi" and raw_d.accounts_data %}
+<script>
+const _finAcctData = {{ raw_d.accounts_data | tojson }};
+const _finOrig = {
+  cost:    {{ report.monthly_cost or 0 }},
+  savings: {{ report.potential_savings or 0 }},
+  score:   {{ finops_score_js }},
+  label:   {{ finops_label_js | tojson }},
+  sub:     "Custo: {{ finops_chs_js }}pts · Maturidade: {{ finops_mmp_js }}pts",
+  trend:   {{ (report.cost_trend or []) | tojson }},
+  services: {{ (report.cost_by_service or []) | tojson }}
+};
+
+function _finFmt(n) { return '$' + Math.round(n).toLocaleString('pt-BR'); }
+
+function _filterFinQW(accountId) {
+  document.querySelectorAll('#fin-qw-card .action-card').forEach(card => {
+    const acct = card.dataset.qwAcct || '';
+    card.style.display = (!accountId || accountId === 'all' || !acct || acct === accountId) ? '' : 'none';
+  });
+}
+
+function _redrawTrendChart(trendArr) {
+  if (!window._finTrendChart) return;
+  window._finTrendChart.data.labels   = trendArr.map(d => (d.period || d.month || '').substring(0, 7));
+  window._finTrendChart.data.datasets[0].data = trendArr.map(d => d.cost.toFixed(2));
+  window._finTrendChart.update();
+}
+
+function _redrawServiceChart(svcArr) {
+  if (!window._finSvcChart) return;
+  const top10 = svcArr.slice(0, 10);
+  window._finSvcChart.data.labels = top10.map(s => (s.service || s.Service || '').replace('Amazon ', '').replace('AWS ', ''));
+  window._finSvcChart.data.datasets[0].data = top10.map(s => (s.cost || s.cost_usd || 0).toFixed(2));
+  window._finSvcChart.update();
+}
+
+function _updateFinScore(score, label, sub) {
+  const circle = document.getElementById('fin-score-circle');
+  const lbl    = document.getElementById('fin-score-label');
+  const subEl  = document.getElementById('fin-score-sub');
+  if (circle) {
+    circle.className = 'score-circle ' + (score === null ? 'score-fair' : (score >= 80 ? 'score-excellent' : score >= 60 ? 'score-good' : score >= 40 ? 'score-fair' : score >= 20 ? 'score-poor' : 'score-critical'));
+    circle.querySelector('.score-number').textContent = score === null ? '—' : score;
+    circle.querySelector('.score-label').textContent  = score === null ? '' : '/ 100';
+  }
+  if (lbl) {
+    lbl.textContent = label;
+    lbl.style.color = score === null ? 'var(--text-light)' : (score >= 80 ? 'var(--low)' : score >= 60 ? 'var(--info)' : score >= 40 ? 'var(--medium)' : score >= 20 ? 'var(--high)' : 'var(--critical)');
+  }
+  if (subEl) subEl.textContent = sub;
+}
+
+function switchFinOpsAccount(accountId) {
+  document.querySelectorAll('.fin-acct-tab').forEach(t => {
+    const active = t.dataset.acct === accountId;
+    t.style.background  = active ? 'var(--pink)' : 'transparent';
+    t.style.color       = active ? '#fff' : 'var(--text-light)';
+    t.style.borderColor = active ? 'var(--pink)' : 'var(--blue-muted)';
+  });
+
+  if (accountId === 'all') {
+    const c = document.getElementById('fin-stat-cost');
+    const s = document.getElementById('fin-stat-savings');
+    if (c) c.textContent = _finFmt(_finOrig.cost);
+    if (s) s.textContent = _finFmt(_finOrig.savings);
+    _updateFinScore(_finOrig.score, _finOrig.label, _finOrig.sub);
+    _redrawTrendChart(_finOrig.trend);
+    _redrawServiceChart(_finOrig.services);
+    _filterFinQW('all');
+    return;
+  }
+
+  const acc = _finAcctData.find(a => a.account_id === accountId);
+  if (!acc) return;
+
+  const cau = acc.cost_and_usage || {};
+  const monthlyCost = cau.total_cost_usd
+    || (cau.monthly_totals && cau.monthly_totals.length
+        ? cau.monthly_totals[cau.monthly_totals.length - 1].cost
+        : 0);
+
+  const qwSavings = Array.from(document.querySelectorAll('#fin-qw-card .action-card'))
+    .filter(c => (c.dataset.qwAcct || '') === accountId)
+    .reduce((sum, c) => {
+      const txt = c.querySelector('[style*="var(--low)"]');
+      if (!txt) return sum;
+      const m = txt.textContent.match(/\$([\d,]+)/);
+      return sum + (m ? parseInt(m[1].replace(/,/g, ''), 10) : 0);
+    }, 0);
+
+  const c = document.getElementById('fin-stat-cost');
+  const s = document.getElementById('fin-stat-savings');
+  if (c) c.textContent = _finFmt(monthlyCost);
+  if (s) s.textContent = _finFmt(qwSavings);
+
+  // Compute a per-account score from cost trend (decreasing = better)
+  let acctScore = null, acctLabel = 'Score não disponível', acctSub = 'Score calculado apenas na visão consolidada';
+  if (cau.monthly_totals && cau.monthly_totals.length >= 2) {
+    const totals = cau.monthly_totals;
+    const first  = totals[0].cost;
+    const last   = totals[totals.length - 1].cost;
+    const changePct = ((last - first) / first) * 100;
+    // Score: 80 base, -5 per 5% cost increase, +5 per 5% cost decrease
+    acctScore = Math.max(0, Math.min(100, Math.round(80 - changePct)));
+    acctLabel = acctScore >= 80 ? 'Excelente' : acctScore >= 60 ? 'Bom' : acctScore >= 40 ? 'Regular' : acctScore >= 20 ? 'Fraco' : 'Crítico';
+    const dir = changePct > 0 ? `+${changePct.toFixed(1)}%` : `${changePct.toFixed(1)}%`;
+    acctSub = `Variação de custo (${totals[0].period.substring(0,7)} → ${totals[totals.length-1].period.substring(0,7)}): ${dir}`;
+  }
+  _updateFinScore(acctScore, acctLabel, acctSub);
+
+  if (cau.monthly_totals && cau.monthly_totals.length) _redrawTrendChart(cau.monthly_totals);
+  if (cau.top_services   && cau.top_services.length)   _redrawServiceChart(cau.top_services);
+
+  _filterFinQW(accountId);
+}
+</script>
+{% endif %}
+
 {% if report and report.cost_trend %}
 <script>
 const trendData = {{ report.cost_trend | tojson }};
@@ -659,7 +800,7 @@ const serviceData = {{ (report.cost_by_service or []) | tojson }};
 // Cost trend chart
 if (trendData.length > 0) {
   const ctx1 = document.getElementById('costTrendChart').getContext('2d');
-  new Chart(ctx1, {
+  window._finTrendChart = new Chart(ctx1, {
     type: 'line',
     data: {
       labels: trendData.map(d => (d.period || d.month || '').substring(0, 7)),
@@ -690,7 +831,7 @@ if (trendData.length > 0) {
 if (serviceData.length > 0) {
   const top10 = serviceData.slice(0, 10);
   const ctx2 = document.getElementById('serviceChart').getContext('2d');
-  new Chart(ctx2, {
+  window._finSvcChart = new Chart(ctx2, {
     type: 'bar',
     data: {
       labels: top10.map(s => s.service.replace('Amazon ', '').replace('AWS ', '')),

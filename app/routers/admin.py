@@ -88,8 +88,17 @@ def run_analysis_job(report_id: int, client_id: int, role_arns: list, regions: s
         db.commit()
 
         n_accounts = len(role_arns)
+        # Coleta todas as regiões únicas configuradas por ARN
+        all_regions: list[str] = []
+        for entry in role_arns:
+            r = entry.get("regions", regions) if isinstance(entry, dict) else regions
+            for reg in r.split(","):
+                reg = reg.strip()
+                if reg and reg not in all_regions:
+                    all_regions.append(reg)
+        regions_display = ", ".join(all_regions) or regions
         _log(report_id, "info",
-             f"Iniciando análise | modo: {account_mode} | contas: {n_accounts} | regiões: {regions}")
+             f"Iniciando análise | modo: {account_mode} | contas: {n_accounts} | regiões: {regions_display}")
 
         # ── Step 1: Collect AWS data ──────────────────────────────────────────
         _log(report_id, "running", "Conectando à(s) conta(s) AWS via STS AssumeRole...")
@@ -954,6 +963,55 @@ async def continue_analysis(
     return RedirectResponse(url=f"/admin/clients/{client_id}?analyzing={report_id}", status_code=303)
 
 
+@router.post("/clients/{client_id}/reanalyze-ai/{report_id}")
+async def reanalyze_ai(
+    client_id: int,
+    report_id: int,
+    db: Session = Depends(get_db),
+):
+    """Force a full re-run of AI analysis on an existing report, reusing its raw_data."""
+    report = db.query(AnalysisReport).filter(
+        AnalysisReport.id == report_id,
+        AnalysisReport.client_id == client_id,
+    ).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    if not report.raw_data:
+        return RedirectResponse(url=f"/admin/clients/{client_id}?error=no_raw_data", status_code=303)
+
+    running = (
+        db.query(AnalysisReport)
+        .filter(AnalysisReport.client_id == client_id, AnalysisReport.status == "running")
+        .first()
+    )
+    if running:
+        return RedirectResponse(url=f"/admin/clients/{client_id}?error=already_running", status_code=303)
+
+    # Clear all AI-derived fields so the job re-generates everything from raw_data
+    report.rightsizing_recommendations = None
+    report.finops_summary = None
+    report.security_summary = None
+    report.security_score = None
+    report.security_label = None
+    report.critical_findings = None
+    report.high_findings = None
+    report.medium_findings = None
+    report.low_findings = None
+    report.quick_wins = None
+    report.projects = None
+    report.service_suggestions = None
+    report.combined_analysis = None
+    report.status = "partial"
+    report.error_message = "Re-análise de IA iniciada."
+    db.commit()
+
+    from app.config import get_settings
+    settings = get_settings()
+    _start_ai_only(report_id, settings.database_url)
+
+    return RedirectResponse(url=f"/admin/clients/{client_id}?analyzing={report_id}", status_code=303)
+
+
 @router.get("/reports/{report_id}/download-assessment")
 async def download_assessment(report_id: int, db: Session = Depends(get_db)):
     """Generate and download a professional AWS Assessment DOCX for the given report."""
@@ -1172,7 +1230,7 @@ async def cloudtrail_audit(
     db: Session = Depends(get_db),
 ):
     """
-    On-demand CloudTrail query: find resources created by non-operator principals
+    On-demand CloudTrail query: find resources created by non-DreamSquad principals
     in the last 1–30 days across all configured regions for this client.
     """
     client = db.query(Client).filter(Client.id == client_id).first()

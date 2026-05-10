@@ -35,9 +35,10 @@ async def security_dashboard(request: Request, client_id: int, db: Session = Dep
 
     report = get_latest_report(client_id, db)
 
+    raw_d = (report.raw_data if report else None) or {}
     return templates.TemplateResponse(
         "security/dashboard.html",
-        {"request": request, "client": client, "report": report},
+        {"request": request, "client": client, "report": report, "raw_d": raw_d},
     )
 
 

@@ -44,6 +44,23 @@
 {% set s3sec = (report.s3_findings or {}).get('security') or {} %}
 {% set ss = [100 - (report.critical_findings * 20) - (report.high_findings * 10) - (report.medium_findings * 5), 0] | max %}
 
+<!-- Account switcher (standalone multi-account only) -->
+{% if raw_d.account_mode == "standalone_multi" and raw_d.accounts_data %}
+<div id="acct-switcher" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:20px;padding:14px 18px;background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow)">
+  <span style="font-size:11px;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:.5px;margin-right:4px">Conta:</span>
+  <button class="acct-tab" data-acct="all" onclick="switchSecAccount('all')"
+    style="padding:5px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--pink);background:var(--pink);color:#fff;transition:all .2s">
+    Consolidado
+  </button>
+  {% for acc in raw_d.accounts_data %}
+  <button class="acct-tab" data-acct="{{ acc.account_id }}" onclick="switchSecAccount('{{ acc.account_id }}')"
+    style="padding:5px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--blue-muted);background:transparent;color:var(--text-light);transition:all .2s;font-family:monospace">
+    {{ acc.account_id }}
+  </button>
+  {% endfor %}
+</div>
+{% endif %}
+
 <!-- Security summary from Claude -->
 {% if report.security_summary %}
 <div class="alert alert-{% if report.critical_findings > 0 %}error{% elif report.high_findings > 5 %}warning{% else %}info{% endif %}" style="margin-bottom:20px">
@@ -53,7 +70,7 @@
 {% endif %}
 
 <!-- Severity stats -->
-<div class="stats-grid">
+<div id="sec-stats-grid" class="stats-grid">
   <div class="stat-card red">
     <span class="stat-label">Críticos</span>
     <span class="stat-value">{{ report.critical_findings or 0 }}</span>
@@ -81,7 +98,7 @@
   <div class="card">
     <div class="card-header"><span class="card-title">Score de Segurança</span></div>
     <div style="display:flex;align-items:center;gap:24px">
-      <div class="score-circle score-{% if ss >= 80 %}excellent{% elif ss >= 60 %}good{% elif ss >= 40 %}fair{% elif ss >= 20 %}poor{% else %}critical{% endif %}">
+      <div id="sec-score-circle" class="score-circle score-{% if ss >= 80 %}excellent{% elif ss >= 60 %}good{% elif ss >= 40 %}fair{% elif ss >= 20 %}poor{% else %}critical{% endif %}">
         <span class="score-number">{{ ss }}</span>
         <span class="score-label">Score</span>
       </div>
@@ -107,28 +124,28 @@
   {% set iam = report.iam_findings %}
   <div class="card">
     <div class="card-header"><span class="card-title">IAM — Resumo</span></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-      <div style="padding:12px;background:{% if not iam.root_mfa_enabled %}rgba(229,62,62,0.08){% else %}rgba(56,161,105,0.08){% endif %};border-radius:8px">
+    <div id="sec-iam-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div id="iam-root-mfa" style="padding:12px;background:{% if not iam.root_mfa_enabled %}rgba(229,62,62,0.08){% else %}rgba(56,161,105,0.08){% endif %};border-radius:8px">
         <div style="font-size:11px;color:var(--text-light);margin-bottom:4px">ROOT MFA</div>
-        <div style="font-weight:700;color:{% if iam.root_mfa_enabled %}var(--low){% else %}var(--critical){% endif %}">
+        <div id="iam-root-mfa-val" style="font-weight:700;color:{% if iam.root_mfa_enabled %}var(--low){% else %}var(--critical){% endif %}">
           {% if iam.root_mfa_enabled %}✓ Ativado{% else %}✗ Desativado{% endif %}
         </div>
       </div>
-      <div style="padding:12px;background:{% if (iam.users_without_mfa or [])|length > 0 %}rgba(221,107,32,0.08){% else %}rgba(56,161,105,0.08){% endif %};border-radius:8px">
+      <div id="iam-no-mfa" style="padding:12px;background:{% if (iam.users_without_mfa or [])|length > 0 %}rgba(221,107,32,0.08){% else %}rgba(56,161,105,0.08){% endif %};border-radius:8px">
         <div style="font-size:11px;color:var(--text-light);margin-bottom:4px">USUÁRIOS SEM MFA</div>
-        <div style="font-weight:700;color:{% if (iam.users_without_mfa or [])|length > 0 %}var(--high){% else %}var(--low){% endif %}">
+        <div id="iam-no-mfa-val" style="font-weight:700;color:{% if (iam.users_without_mfa or [])|length > 0 %}var(--high){% else %}var(--low){% endif %}">
           {{ (iam.users_without_mfa or [])|length }}
         </div>
       </div>
-      <div style="padding:12px;background:{% if (iam.users_with_old_keys or [])|length > 0 %}rgba(214,158,46,0.08){% else %}rgba(56,161,105,0.08){% endif %};border-radius:8px">
+      <div id="iam-old-keys" style="padding:12px;background:{% if (iam.users_with_old_keys or [])|length > 0 %}rgba(214,158,46,0.08){% else %}rgba(56,161,105,0.08){% endif %};border-radius:8px">
         <div style="font-size:11px;color:var(--text-light);margin-bottom:4px">CHAVES +90 DIAS</div>
-        <div style="font-weight:700;color:{% if (iam.users_with_old_keys or [])|length > 0 %}var(--medium){% else %}var(--low){% endif %}">
+        <div id="iam-old-keys-val" style="font-weight:700;color:{% if (iam.users_with_old_keys or [])|length > 0 %}var(--medium){% else %}var(--low){% endif %}">
           {{ (iam.users_with_old_keys or [])|length }}
         </div>
       </div>
-      <div style="padding:12px;background:{% if (iam.overprivileged_policies or [])|length > 0 %}rgba(229,62,62,0.08){% else %}rgba(56,161,105,0.08){% endif %};border-radius:8px">
+      <div id="iam-overpriv" style="padding:12px;background:{% if (iam.overprivileged_policies or [])|length > 0 %}rgba(229,62,62,0.08){% else %}rgba(56,161,105,0.08){% endif %};border-radius:8px">
         <div style="font-size:11px;color:var(--text-light);margin-bottom:4px">POLICIES ADMIN *:*</div>
-        <div style="font-weight:700;color:{% if (iam.overprivileged_policies or [])|length > 0 %}var(--critical){% else %}var(--low){% endif %}">
+        <div id="iam-overpriv-val" style="font-weight:700;color:{% if (iam.overprivileged_policies or [])|length > 0 %}var(--critical){% else %}var(--low){% endif %}">
           {{ (iam.overprivileged_policies or [])|length }}
         </div>
       </div>
@@ -393,18 +410,72 @@
   {% endif %}
 </div>
 
+<!-- Standalone multi-account security breakdown -->
+{% set raw_sec = report.raw_data or {} %}
+{% if raw_sec.account_mode == "standalone_multi" and raw_sec.accounts_data %}
+<div class="card" style="margin-bottom:24px">
+  <div class="card-header">
+    <span class="card-title">🏦 Multi-Conta — Breakdown de Segurança por Conta</span>
+    <span style="font-size:12px;color:var(--text-light)">{{ raw_sec.accounts_data|length }} contas analisadas · Modo Standalone</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Account ID</th>
+          <th>Root MFA</th>
+          <th>Sem MFA</th>
+          <th>Chaves +90d</th>
+          <th>Policies *:*</th>
+          <th>S3 Públicos</th>
+          <th>SGs Abertos</th>
+          <th>GuardDuty OFF</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for acc in raw_sec.accounts_data %}
+        {% set acc_iam = acc.iam_findings or {} %}
+        {% set acc_s3 = acc.s3_security or {} %}
+        {% set acc_net = acc.network_security or {} %}
+        {% set mfa_missing = (acc_iam.users_without_mfa or [])|length %}
+        {% set old_keys = (acc_iam.users_with_old_keys or [])|length %}
+        {% set overpriv = (acc_iam.overprivileged_policies or [])|length %}
+        {% set pub_s3 = (acc_s3.public_buckets or [])|length %}
+        {% set open_sgs = (acc_net.open_security_groups or [])|length %}
+        {% set gd_off = (acc_net.regions_without_guardduty or [])|length %}
+        <tr>
+          <td style="font-family:monospace;font-size:12px;font-weight:600;color:var(--navy)">{{ acc.account_id }}</td>
+          <td>
+            <span class="sev sev-{% if acc_iam.root_mfa_enabled %}low{% else %}critical{% endif %}">
+              {% if acc_iam.root_mfa_enabled %}✓ OK{% else %}✗ OFF{% endif %}
+            </span>
+          </td>
+          <td><span class="sev sev-{% if mfa_missing > 0 %}medium{% else %}low{% endif %}">{{ mfa_missing }}</span></td>
+          <td><span class="sev sev-{% if old_keys > 0 %}medium{% else %}low{% endif %}">{{ old_keys }}</span></td>
+          <td><span class="sev sev-{% if overpriv > 0 %}critical{% else %}low{% endif %}">{{ overpriv }}</span></td>
+          <td><span class="sev sev-{% if pub_s3 > 0 %}critical{% else %}low{% endif %}">{{ pub_s3 }}</span></td>
+          <td><span class="sev sev-{% if open_sgs > 0 %}critical{% else %}low{% endif %}">{{ open_sgs }}</span></td>
+          <td><span class="sev sev-{% if gd_off > 0 %}high{% else %}low{% endif %}">{{ gd_off }} região(ões)</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
 <!-- Quick wins preview -->
 {% if report.quick_wins %}
 {% set sec_qw = [] %}
 {% for qw in report.quick_wins %}{% if qw.get('area') == 'security' %}{% set _ = sec_qw.append(qw) %}{% endif %}{% endfor %}
 {% if sec_qw %}
-<div class="card">
+<div id="sec-quick-wins" class="card">
   <div class="card-header">
     <span class="card-title">⚡ Quick Wins Principais</span>
     <a href="/security/{{ client.id }}/quick-wins" class="btn btn-outline btn-sm">Ver todos</a>
   </div>
-  {% for qw in sec_qw[:3] %}
-  <div class="action-card">
+  {% for qw in sec_qw[:6] %}
+  <div class="action-card" data-qw-acct="{{ qw.account_id or '' }}">
     <div class="action-card-header">
       <div>
         <div class="action-card-title">{{ qw.title }}</div>
@@ -424,6 +495,126 @@
 {% endif %}
 {% endif %}
 
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+{% if raw_d.account_mode == "standalone_multi" and raw_d.accounts_data %}
+<script>
+const _secAcctData = {{ raw_d.accounts_data | tojson }};
+const _secOrig = {
+  critical: {{ report.critical_findings or 0 }},
+  high:     {{ report.high_findings or 0 }},
+  medium:   {{ report.medium_findings or 0 }},
+  low:      {{ report.low_findings or 0 }},
+  score:    Math.max(0, 100 - {{ report.critical_findings or 0 }} * 20 - {{ report.high_findings or 0 }} * 10 - {{ report.medium_findings or 0 }} * 5),
+  iam:      {{ (report.iam_findings or {}) | tojson }}
+};
+
+function _secScoreClass(s) {
+  return s >= 80 ? 'score-excellent' : s >= 60 ? 'score-good' : s >= 40 ? 'score-fair' : s >= 20 ? 'score-poor' : 'score-critical';
+}
+
+function _computeSecScore(acc) {
+  let s = 100;
+  const iam = acc.iam_findings || {};
+  const s3  = acc.s3_security || {};
+  const net = acc.network_security || {};
+  const enc = acc.encryption_findings || {};
+  if (!iam.root_mfa_enabled) s -= 20;
+  s -= (iam.overprivileged_policies || []).length * 20;
+  s -= (s3.public_buckets || []).length * 20;
+  s -= (net.open_security_groups || []).length * 20;
+  s -= (enc.unencrypted_rds || []).length * 10;
+  s -= (net.regions_without_guardduty || []).length * 10;
+  s -= (s3.unencrypted_buckets || []).length * 10;
+  s -= (iam.users_without_mfa || []).length * 5;
+  return Math.max(0, s);
+}
+
+function _updateSecScore(score) {
+  const el = document.getElementById('sec-score-circle');
+  if (!el) return;
+  el.className = 'score-circle ' + _secScoreClass(score);
+  el.querySelector('.score-number').textContent = score;
+}
+
+function _updateSecStats(c, h, m, l) {
+  const vals = document.querySelectorAll('#sec-stats-grid .stat-value');
+  if (vals[0]) vals[0].textContent = c;
+  if (vals[1]) vals[1].textContent = h;
+  if (vals[2]) vals[2].textContent = m;
+  if (vals[3]) vals[3].textContent = l;
+}
+
+function _updateIAM(iam) {
+  const rootOk = iam.root_mfa_enabled;
+  const noMfa  = (iam.users_without_mfa || []).length;
+  const oldKey = (iam.users_with_old_keys || []).length;
+  const overp  = (iam.overprivileged_policies || []).length;
+
+  const cells = {
+    'iam-root-mfa':  { bg: rootOk ? 'rgba(56,161,105,0.08)' : 'rgba(229,62,62,0.08)',  val: rootOk ? '✓ Ativado' : '✗ Desativado', color: rootOk ? 'var(--low)' : 'var(--critical)' },
+    'iam-no-mfa':    { bg: noMfa  > 0 ? 'rgba(221,107,32,0.08)' : 'rgba(56,161,105,0.08)',  val: noMfa,  color: noMfa  > 0 ? 'var(--high)' : 'var(--low)' },
+    'iam-old-keys':  { bg: oldKey > 0 ? 'rgba(214,158,46,0.08)' : 'rgba(56,161,105,0.08)',  val: oldKey, color: oldKey > 0 ? 'var(--medium)' : 'var(--low)' },
+    'iam-overpriv':  { bg: overp  > 0 ? 'rgba(229,62,62,0.08)'  : 'rgba(56,161,105,0.08)', val: overp,  color: overp  > 0 ? 'var(--critical)' : 'var(--low)' },
+  };
+  for (const [id, cfg] of Object.entries(cells)) {
+    const cell = document.getElementById(id);
+    const valEl = document.getElementById(id + '-val');
+    if (cell)  cell.style.background = cfg.bg;
+    if (valEl) { valEl.textContent = cfg.val; valEl.style.color = cfg.color; }
+  }
+}
+
+function _filterSecQW(accountId) {
+  document.querySelectorAll('#sec-quick-wins .action-card').forEach(card => {
+    const acct = card.dataset.qwAcct || '';
+    card.style.display = (!accountId || accountId === 'all' || !acct || acct === accountId) ? '' : 'none';
+  });
+}
+
+function switchSecAccount(accountId) {
+  document.querySelectorAll('.acct-tab').forEach(t => {
+    const active = t.dataset.acct === accountId;
+    t.style.background   = active ? 'var(--pink)' : 'transparent';
+    t.style.color        = active ? '#fff' : 'var(--text-light)';
+    t.style.borderColor  = active ? 'var(--pink)' : 'var(--blue-muted)';
+  });
+
+  if (accountId === 'all') {
+    _updateSecScore(_secOrig.score);
+    _updateSecStats(_secOrig.critical, _secOrig.high, _secOrig.medium, _secOrig.low);
+    _updateIAM(_secOrig.iam);
+    _filterSecQW('all');
+    return;
+  }
+
+  const acc = _secAcctData.find(a => a.account_id === accountId);
+  if (!acc) return;
+
+  const iam = acc.iam_findings || {};
+  const s3  = acc.s3_security || {};
+  const net = acc.network_security || {};
+  const enc = acc.encryption_findings || {};
+
+  const critical = (!iam.root_mfa_enabled ? 1 : 0)
+    + (iam.overprivileged_policies || []).length
+    + (s3.public_buckets || []).length
+    + (net.open_security_groups || []).length;
+  const high = (enc.unencrypted_rds || []).length
+    + (net.regions_without_guardduty || []).length
+    + (s3.unencrypted_buckets || []).length;
+  const medium = (iam.users_without_mfa || []).length
+    + (enc.unencrypted_ebs || []).length;
+  const low = (iam.inactive_users || []).length;
+
+  _updateSecStats(critical, high, medium, low);
+  _updateSecScore(_computeSecScore(acc));
+  _updateIAM(iam);
+  _filterSecQW(accountId);
+}
+</script>
 {% endif %}
 {% endblock %}
 
