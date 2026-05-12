@@ -240,8 +240,8 @@ aws ec2 revoke-security-group-ingress \
       <table>
         <thead><tr><th>Volume ID</th><th>Região</th><th>Tamanho</th><th>Estado</th></tr></thead>
         <tbody>
-          {% for v in enc.unencrypted_ebs[:30] %}
-          <tr>
+          {% for v in enc.unencrypted_ebs %}
+          <tr class="lm-item {% if loop.index > 20 %}lm-hidden{% endif %}">
             <td style="font-family:monospace;font-size:12px">{{ v.volume_id }}</td>
             <td><span class="tag">{{ v.region }}</span></td>
             <td>{{ v.size_gb }} GB</td>
@@ -251,6 +251,13 @@ aws ec2 revoke-security-group-ingress \
         </tbody>
       </table>
     </div>
+    {% if enc.unencrypted_ebs|length > 20 %}
+    <div style="padding:0 16px 12px">
+      <button class="btn btn-outline btn-sm" style="width:100%;margin-top:4px" onclick="loadMore(this)">
+        Ver mais ({{ enc.unencrypted_ebs|length - 20 }} restantes)
+      </button>
+    </div>
+    {% endif %}
   </div>
   {% endif %}
 
@@ -283,9 +290,12 @@ aws ec2 revoke-security-group-ingress \
 <div id="tab-compliance" style="display:none">
   {% if comp.get('security_hub') %}
   <div class="card" style="margin-bottom:16px">
-    <div class="card-header"><span class="card-title">Security Hub — Critical/High Findings</span></div>
+    <div class="card-header">
+      <span class="card-title">Security Hub — Critical/High Findings</span>
+      <span class="sev sev-high">{{ comp.security_hub|length }}</span>
+    </div>
     {% for f in comp.security_hub %}
-    <div class="action-card" style="margin-bottom:8px">
+    <div class="action-card lm-item {% if loop.index > 10 %}lm-hidden{% endif %}" style="margin-bottom:8px">
       <div class="action-card-header">
         <span class="action-card-title">{{ f.title }}</span>
         <span class="sev sev-{{ f.severity|lower if f.severity else 'medium' }}">{{ f.severity }}</span>
@@ -294,18 +304,28 @@ aws ec2 revoke-security-group-ingress \
       <div style="font-size:11px;color:var(--blue-muted);margin-top:4px">Recurso: {{ f.resource_type }}</div>
     </div>
     {% endfor %}
+    {% if comp.security_hub|length > 10 %}
+    <div style="padding:4px 0 8px">
+      <button class="btn btn-outline btn-sm" style="width:100%" onclick="loadMore(this)">
+        Ver mais ({{ comp.security_hub|length - 10 }} restantes)
+      </button>
+    </div>
+    {% endif %}
   </div>
   {% endif %}
 
   {% if comp.get('config_rules_failing') %}
   <div class="card">
-    <div class="card-header"><span class="card-title">AWS Config — Regras com Falha</span></div>
+    <div class="card-header">
+      <span class="card-title">AWS Config — Regras com Falha</span>
+      <span class="sev sev-high">{{ comp.config_rules_failing|length }}</span>
+    </div>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Regra</th><th>Recursos não conformes</th></tr></thead>
         <tbody>
           {% for r in comp.config_rules_failing %}
-          <tr>
+          <tr class="lm-item {% if loop.index > 15 %}lm-hidden{% endif %}">
             <td>{{ r.rule }}</td>
             <td><span class="sev sev-high">{{ r.non_compliant_resources }}</span></td>
           </tr>
@@ -313,6 +333,13 @@ aws ec2 revoke-security-group-ingress \
         </tbody>
       </table>
     </div>
+    {% if comp.config_rules_failing|length > 15 %}
+    <div style="padding:0 16px 12px">
+      <button class="btn btn-outline btn-sm" style="width:100%;margin-top:4px" onclick="loadMore(this)">
+        Ver mais ({{ comp.config_rules_failing|length - 15 }} restantes)
+      </button>
+    </div>
+    {% endif %}
   </div>
   {% endif %}
 </div>
@@ -328,5 +355,14 @@ function showTab(name, el) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
 }
+function loadMore(btn) {
+  const card = btn.closest('.card');
+  const hidden = [...card.querySelectorAll('.lm-item.lm-hidden')];
+  hidden.slice(0, 10).forEach(el => el.classList.remove('lm-hidden'));
+  const remaining = card.querySelectorAll('.lm-item.lm-hidden').length;
+  if (remaining === 0) btn.parentElement.remove();
+  else btn.textContent = 'Ver mais (' + remaining + ' restantes)';
+}
 </script>
+<style>.lm-hidden { display: none; }</style>
 {% endblock %}

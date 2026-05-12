@@ -77,24 +77,51 @@
   }
   .corr-node-pill.finops       { background: rgba(31,46,71,0.08);  color: var(--navy); }
   .corr-node-pill.security     { background: rgba(229,62,62,0.10); color: var(--critical); }
-  .corr-node-pill.infrastructure { background: rgba(13,148,136,0.10); color: #0d9488; }
+  .corr-node-pill.infrastructure { background: rgba(13,148,136,0.10); color: var(--green); }
 
-  .corr-impact { font-size: 12px; color: #16a34a; font-weight: 600; margin-top: 6px; }
+  .corr-impact { font-size: 12px; color: var(--green); font-weight: 600; margin-top: 6px; }
 
   /* SVG node tooltip */
   #corr-tooltip {
     position: fixed; z-index: 200;
-    background: var(--navy); color: var(--white);
+    background: var(--navy); color: #ffffff;
     padding: 8px 12px; border-radius: 8px;
     font-size: 12px; font-weight: 500;
     pointer-events: none; display: none;
     max-width: 220px; line-height: 1.5;
-    box-shadow: 0 8px 24px rgba(11,25,86,0.3);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
   }
+
+  /* ── Dark mode ── */
+  [data-theme="dark"] #corr-svg {
+    background: #13161e;
+    border-color: #2a2d38;
+  }
+  [data-theme="dark"] .corr-card {
+    background: #1e2028;
+    border-color: #2a2d38;
+  }
+  [data-theme="dark"] .corr-card-title { color: #e2e6f0; }
+  [data-theme="dark"] .corr-node-pill  { background: #2a2d38; color: #c8ccd8; }
+  [data-theme="dark"] .corr-node-pill.finops        { background: rgba(107,127,196,0.18); color: #a0b0e0; }
+  [data-theme="dark"] .corr-node-pill.security      { background: rgba(229,62,62,0.20);  color: #fc8181; }
+  [data-theme="dark"] .corr-node-pill.infrastructure{ background: rgba(13,148,136,0.20); color: #4dd0c4; }
+  [data-theme="dark"] #corr-detail     { background: #1e2028; }
+  [data-theme="dark"] #corr-tooltip    { background: #0d1b3e; color: #e2e6f0; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+  [data-theme="dark"] .corr-legend-item { color: #8890a0; }
 </style>
 {% endblock %}
 
 {% block content %}
+<div class="alert alert-warning" style="margin-bottom:22px;gap:14px">
+  <span style="font-size:20px;line-height:1">🧪</span>
+  <div style="flex:1">
+    <strong style="font-size:13px">Funcionalidade em Fase de Testes</strong>
+    <div style="font-size:12px;margin-top:3px;opacity:.85">O Mapa de Correlações está em desenvolvimento ativo — os dados exibidos podem estar incompletos ou mudar nas próximas versões.</div>
+  </div>
+  <span style="background:var(--yellow-dim);color:var(--yellow);border:1px solid rgba(245,158,11,0.35);padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;flex-shrink:0">BETA</span>
+</div>
+
 {% if not report %}
 <div class="empty-state card">
   <div class="icon">🔗</div>
@@ -130,9 +157,9 @@
   <div>
     <!-- Legend -->
     <div class="corr-legend" style="margin-bottom:12px">
-      <div class="corr-legend-item"><div class="corr-legend-dot" style="background:#EEF2F9;border:2px solid #1F2E47"></div> FinOps / Custo</div>
-      <div class="corr-legend-item"><div class="corr-legend-dot" style="background:rgba(229,62,62,0.12);border:2px solid #E53E3E"></div> Segurança</div>
-      <div class="corr-legend-item"><div class="corr-legend-dot" style="background:rgba(13,148,136,0.1);border:2px solid #0D9488"></div> Infraestrutura</div>
+      <div class="corr-legend-item"><div class="corr-legend-dot" style="background:var(--blue-card);border:2px solid #5b7bd4"></div> FinOps / Custo</div>
+      <div class="corr-legend-item"><div class="corr-legend-dot" style="background:rgba(229,62,62,0.15);border:2px solid #E53E3E"></div> Segurança</div>
+      <div class="corr-legend-item"><div class="corr-legend-dot" style="background:rgba(13,148,136,0.15);border:2px solid #0D9488"></div> Infraestrutura</div>
       <div class="corr-legend-item" style="margin-left:12px">
         <svg width="28" height="8"><line x1="0" y1="4" x2="28" y2="4" stroke="#E53E3E" stroke-width="2.5" stroke-dasharray="0"/></svg> Crítica
       </div>
@@ -280,8 +307,18 @@ function simulate(iters) {
 simulate(280);
 
 /* ── Colors ── */
-function catBg(cat)     { return {finops:'#EEF2F9', security:'rgba(229,62,62,0.10)', infrastructure:'rgba(13,148,136,0.10)'}[cat] || '#F6F9FF'; }
-function catStroke(cat) { return {finops:'#1F2E47', security:'#E53E3E', infrastructure:'#0D9488'}[cat] || '#A9B8D3'; }
+const _isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+
+function catBg(cat) {
+  return _isDark
+    ? ({finops:'#1a2550', security:'rgba(229,62,62,0.25)', infrastructure:'rgba(13,148,136,0.25)'}[cat] || '#1e2028')
+    : ({finops:'#EEF2F9', security:'rgba(229,62,62,0.10)', infrastructure:'rgba(13,148,136,0.10)'}[cat] || '#F6F9FF');
+}
+function catStroke(cat) {
+  return _isDark
+    ? ({finops:'#5b7bd4', security:'#E53E3E', infrastructure:'#0D9488'}[cat] || '#5b7bd4')
+    : ({finops:'#1F2E47', security:'#E53E3E', infrastructure:'#0D9488'}[cat] || '#A9B8D3');
+}
 function sevColor(sev)  { return {critical:'#E53E3E', high:'#DD6B20', medium:'#D69E2E', low:'#38A169'}[sev] || '#A9B8D3'; }
 function sevWidth(sev)  { return {critical:3, high:2.5, medium:2, low:1.5}[sev] || 2; }
 
@@ -327,7 +364,7 @@ const nodeEls = nodes.map((n, ni) => {
   labelEl.setAttribute('font-size', '10');
   labelEl.setAttribute('font-family', 'Poppins, sans-serif');
   labelEl.setAttribute('font-weight', '600');
-  labelEl.setAttribute('fill', '#1F2E47');
+  labelEl.setAttribute('fill', _isDark ? '#c8ccd8' : '#1F2E47');
   labelLines.forEach((line, idx) => {
     const ts = document.createElementNS(ns, 'tspan');
     ts.setAttribute('x', '0');
@@ -422,7 +459,7 @@ function selectCorr(idx) {
       <span style="color:var(--text-light)">${c.recommendation}</span>
     </div>
     ${c.financial_impact > 0
-      ? `<div style="margin-top:12px;padding:10px 12px;background:rgba(22,163,74,0.08);border-radius:8px;font-size:13px;font-weight:600;color:#16a34a">
+      ? `<div style="margin-top:12px;padding:10px 12px;background:var(--green-dim);border-radius:8px;font-size:13px;font-weight:600;color:var(--green)">
            💡 Impacto financeiro estimado: $${c.financial_impact.toFixed(0)}/mês
          </div>`
       : ''}

@@ -46,9 +46,9 @@
 
 <!-- Alertas do Portfolio -->
 {% if alerts %}
-<div class="card" style="margin-bottom:24px;border-left:3px solid #f87171">
+<div class="card" style="margin-bottom:24px;border-left:3px solid var(--red)">
   <div class="card-header">
-    <span class="card-title" style="color:#dc2626">⚠ Alertas do Portfolio</span>
+    <span class="card-title" style="color:var(--red)">⚠ Alertas do Portfolio</span>
     <span style="font-size:12px;color:var(--text-light)">{{ alerts|length }} item(s) precisando atenção</span>
   </div>
   <div style="padding:0 20px 16px">
@@ -73,9 +73,9 @@
 
 <!-- Análises em Andamento -->
 {% if running_with_client %}
-<div class="card" style="margin-bottom:24px;border-left:3px solid #3b82f6">
+<div class="card" style="margin-bottom:24px;border-left:3px solid var(--blue)">
   <div class="card-header">
-    <span class="card-title" style="color:#1d4ed8">
+    <span class="card-title" style="color:var(--blue)">
       <span class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:6px"></span>
       Análises em Andamento
     </span>
@@ -134,7 +134,7 @@
               {% if score >= 70 %}
                 <span class="badge badge-green">{{ score }} · {{ entry.cost_label or 'Bom' }}</span>
               {% elif score >= 40 %}
-                <span class="badge" style="background:#fef9c3;color:#854d0e;border:1px solid #fde047">{{ score }} · {{ entry.cost_label or 'Regular' }}</span>
+                <span class="badge" style="background:var(--badge-warn-bg);color:var(--badge-warn-color);border:1px solid var(--badge-warn-border)">{{ score }} · {{ entry.cost_label or 'Regular' }}</span>
               {% else %}
                 <span class="badge badge-red">{{ score }} · {{ entry.cost_label or 'Crítico' }}</span>
               {% endif %}
@@ -150,7 +150,7 @@
               {% if sscore >= 70 %}
                 <span class="badge badge-green">{{ sscore }} · {{ entry.security_label or 'Bom' }}</span>
               {% elif sscore >= 40 %}
-                <span class="badge" style="background:#fef9c3;color:#854d0e;border:1px solid #fde047">{{ sscore }} · {{ entry.security_label or 'Regular' }}</span>
+                <span class="badge" style="background:var(--badge-warn-bg);color:var(--badge-warn-color);border:1px solid var(--badge-warn-border)">{{ sscore }} · {{ entry.security_label or 'Regular' }}</span>
               {% else %}
                 <span class="badge badge-red">{{ sscore }} · {{ entry.security_label or 'Crítico' }}</span>
               {% endif %}
@@ -163,12 +163,12 @@
           <td>
             {% if entry.trend_direction %}
               {% if entry.trend_direction == 'crescente' or entry.trend_status == 'alerta' %}
-                <span style="color:#dc2626;font-weight:600">
+                <span style="color:var(--red);font-weight:600">
                   ↑ Crescente
                   {% if entry.trend_pct %}(+{{ "%.1f"|format(entry.trend_pct) }}%/mês){% endif %}
                 </span>
               {% elif entry.trend_direction == 'decrescente' %}
-                <span style="color:#16a34a;font-weight:600">
+                <span style="color:var(--green);font-weight:600">
                   ↓ Decrescente
                   {% if entry.trend_pct %}({{ "%.1f"|format(entry.trend_pct) }}%/mês){% endif %}
                 </span>
@@ -195,7 +195,7 @@
           <!-- Economia Potencial -->
           <td>
             {% if entry.potential_savings %}
-              <span style="color:#16a34a;font-weight:600">${{ "%.0f"|format(entry.potential_savings) }}/mês</span>
+              <span style="color:var(--green);font-weight:600">${{ "%.0f"|format(entry.potential_savings) }}/mês</span>
             {% else %}
               <span style="color:var(--text-light);font-size:12px">—</span>
             {% endif %}
@@ -206,7 +206,7 @@
             {% if r %}
               <div>{{ r.started_at.strftime('%d/%m/%Y') if r.started_at }}</div>
               {% if entry.days_since is not none %}
-                <div style="color:{% if entry.days_since > 30 %}#dc2626{% elif entry.days_since > 14 %}#d97706{% else %}var(--text-light){% endif %}">
+                <div style="color:{% if entry.days_since > 30 %}var(--red){% elif entry.days_since > 14 %}var(--yellow){% else %}var(--text-light){% endif %}">
                   há {{ entry.days_since }} dias
                 </div>
               {% endif %}
@@ -269,7 +269,7 @@
             {% else %}<span class="badge badge-navy">⏳ Pendente</span>{% endif %}
           </td>
           <td>{% if r.monthly_cost %}${{ "%.0f"|format(r.monthly_cost) }}{% else %}—{% endif %}</td>
-          <td>{% if r.potential_savings %}<span style="color:#16a34a;font-weight:600">${{ "%.0f"|format(r.potential_savings) }}/mês</span>{% else %}—{% endif %}</td>
+          <td>{% if r.potential_savings %}<span style="color:var(--green);font-weight:600">${{ "%.0f"|format(r.potential_savings) }}/mês</span>{% else %}—{% endif %}</td>
           <td style="color:var(--text-light);font-size:12px">{{ r.started_at.strftime('%d/%m %H:%M') if r.started_at }}</td>
           <td>
             {% if r.status in ('completed', 'partial') and client_map.get(r.client_id) %}

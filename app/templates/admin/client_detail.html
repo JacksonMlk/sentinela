@@ -607,10 +607,10 @@ function showStatusBanner(status) {
   if (existing) existing.remove();
 
   const map = {
-    completed: { bg: '#d1fae5', color: '#065f46', icon: '✓', text: 'Análise concluída com sucesso! Recarregando...' },
-    partial:   { bg: '#fef9c3', color: '#713f12', icon: '⚠', text: 'Análise pausada/parcial. Recarregando...' },
-    failed:    { bg: '#fee2e2', color: '#7f1d1d', icon: '✗', text: 'Análise falhou. Recarregando...' },
-    cancelled: { bg: '#f3f4f6', color: '#374151', icon: '⊘', text: 'Análise cancelada. Recarregando...' },
+    completed: { bg: 'var(--green-dim)', color: 'var(--green)', icon: '✓', text: 'Análise concluída com sucesso! Recarregando...' },
+    partial:   { bg: 'var(--yellow-dim)', color: 'var(--yellow)', icon: '⚠', text: 'Análise pausada/parcial. Recarregando...' },
+    failed:    { bg: 'var(--red-dim)', color: 'var(--red)', icon: '✗', text: 'Análise falhou. Recarregando...' },
+    cancelled: { bg: 'var(--bg-hover)', color: 'var(--text-2)', icon: '⊘', text: 'Análise cancelada. Recarregando...' },
   };
   const m = map[status] || map.partial;
   const banner = document.createElement('div');

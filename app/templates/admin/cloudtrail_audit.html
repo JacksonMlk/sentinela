@@ -101,7 +101,7 @@
   </h3>
   <div style="display:flex;flex-wrap:wrap;gap:8px">
     {% for u in unique_users %}
-    <span style="background:rgba(217,119,6,0.1);color:#d97706;padding:4px 10px;
+    <span style="background:var(--yellow-dim);color:var(--yellow);padding:4px 10px;
       border-radius:20px;font-size:11px;font-weight:600">
       {{ u }}
     </span>
@@ -132,7 +132,7 @@
       </thead>
       <tbody>
         {% for ev in events %}
-        <tr style="border-top:1px solid var(--border);{% if loop.index is odd %}background:#fff{% else %}background:var(--bg-hero){% endif %}">
+        <tr style="border-top:1px solid var(--border);{% if loop.index is odd %}background:var(--bg-card){% else %}background:var(--bg-hover){% endif %}">
           <td style="padding:10px 16px;white-space:nowrap;font-family:monospace;font-size:11px;color:var(--text-light)">
             {{ ev.event_time[:19].replace('T',' ') if ev.event_time else '—' }}
           </td>
@@ -145,8 +145,8 @@
           <td style="padding:10px 16px">
             <span style="padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;
               {% if ev.identity_type == 'Root' %}background:rgba(229,62,62,0.12);color:var(--critical)
-              {% elif ev.identity_type == 'IAMUser' %}background:rgba(217,119,6,0.1);color:#d97706
-              {% else %}background:rgba(11,25,86,0.08);color:var(--navy){% endif %}">
+              {% elif ev.identity_type == 'IAMUser' %}background:var(--yellow-dim);color:var(--yellow)
+              {% else %}background:var(--bg-hover);color:var(--navy){% endif %}">
               {{ ev.identity_type }}
             </span>
           </td>

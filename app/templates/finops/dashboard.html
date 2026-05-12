@@ -47,15 +47,21 @@
 
 <!-- Account switcher (standalone multi-account only) -->
 {% if raw_d.account_mode == "standalone_multi" and raw_d.accounts_data %}
-<div id="fin-acct-switcher" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:20px;padding:14px 18px;background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow)">
+<style>
+.fin-acct-tab {
+  padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: 600;
+  cursor: pointer; border: 1.5px solid var(--blue-muted);
+  background: transparent; color: var(--text-light); transition: all .2s; font-family: inherit;
+}
+.fin-acct-tab.active { background: var(--orange); color: #fff; border-color: var(--orange); }
+</style>
+<div id="fin-acct-switcher" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:20px;padding:14px 18px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow)">
   <span style="font-size:11px;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:.5px;margin-right:4px">Conta:</span>
-  <button class="fin-acct-tab" data-acct="all" onclick="switchFinOpsAccount('all')"
-    style="padding:5px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--pink);background:var(--pink);color:#fff;transition:all .2s">
+  <button class="fin-acct-tab active" data-acct="all" onclick="switchFinOpsAccount('all')">
     Consolidado
   </button>
   {% for acc in raw_d.accounts_data %}
-  <button class="fin-acct-tab" data-acct="{{ acc.account_id }}" onclick="switchFinOpsAccount('{{ acc.account_id }}')"
-    style="padding:5px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--blue-muted);background:transparent;color:var(--text-light);transition:all .2s;font-family:monospace">
+  <button class="fin-acct-tab" data-acct="{{ acc.account_id }}" onclick="switchFinOpsAccount('{{ acc.account_id }}')" style="font-family:monospace">
     {{ acc.account_id }}
   </button>
   {% endfor %}
@@ -97,7 +103,7 @@
 <!-- Cost Trend & Forecast (Section E) -->
 {% set ct = fin.cost_trend or {} %}
 {% if ct and ct.status %}
-<div class="card" style="margin-bottom:24px;border-left:4px solid {% if ct.status == 'alerta' %}#dc2626{% elif ct.status == 'atenção' %}#d97706{% elif ct.status == 'otimizando' %}#16a34a{% else %}#6b7280{% endif %}">
+<div class="card" style="margin-bottom:24px;border-left:4px solid {% if ct.status == 'alerta' %}var(--red){% elif ct.status == 'atenção' %}var(--yellow){% elif ct.status == 'otimizando' %}var(--green){% else %}var(--text-2){% endif %}">
   <div class="card-header">
     <span class="card-title">
       {% if ct.status == 'alerta' %}📈{% elif ct.status == 'otimizando' %}📉{% elif ct.status == 'atenção' %}⚠️{% else %}📊{% endif %}
@@ -117,7 +123,7 @@
     {% if ct.variacao_mom_pct is not none %}
     <div style="background:var(--bg-hero);border-radius:8px;padding:12px;text-align:center">
       <div style="font-size:11px;font-weight:600;color:var(--text-light);margin-bottom:4px">VARIAÇÃO MÊS A MÊS</div>
-      <div style="font-size:22px;font-weight:700;color:{% if ct.variacao_mom_pct > 5 %}#dc2626{% elif ct.variacao_mom_pct < -3 %}#16a34a{% else %}var(--navy){% endif %}">
+      <div style="font-size:22px;font-weight:700;color:{% if ct.variacao_mom_pct > 5 %}var(--red){% elif ct.variacao_mom_pct < -3 %}var(--green){% else %}var(--text){% endif %}">
         {% if ct.variacao_mom_pct > 0 %}+{% endif %}{{ "%.1f"|format(ct.variacao_mom_pct) }}%
       </div>
     </div>
@@ -131,12 +137,12 @@
     {% if ct.projecao_3_meses_usd %}
     <div style="background:var(--bg-hero);border-radius:8px;padding:12px;text-align:center">
       <div style="font-size:11px;font-weight:600;color:var(--text-light);margin-bottom:4px">PROJEÇÃO 3 MESES</div>
-      <div style="font-size:22px;font-weight:700;color:{% if ct.custo_medio_ultimos_3m and ct.projecao_3_meses_usd > ct.custo_medio_ultimos_3m * 1.05 %}#dc2626{% else %}var(--navy){% endif %}">${{ "%.0f"|format(ct.projecao_3_meses_usd) }}</div>
+      <div style="font-size:22px;font-weight:700;color:{% if ct.custo_medio_ultimos_3m and ct.projecao_3_meses_usd > ct.custo_medio_ultimos_3m * 1.05 %}var(--red){% else %}var(--text){% endif %}">${{ "%.0f"|format(ct.projecao_3_meses_usd) }}</div>
     </div>
     {% endif %}
   </div>
   {% if ct.diagnostico %}
-  <div style="margin:0 20px 16px;background:rgba(11,25,86,0.04);border-radius:8px;padding:12px 16px;font-size:13px;line-height:1.6;color:var(--navy-mid)">{{ ct.diagnostico }}</div>
+  <div style="margin:0 20px 16px;background:var(--bg-hover);border-radius:8px;padding:12px 16px;font-size:13px;line-height:1.6;color:var(--navy-mid)">{{ ct.diagnostico }}</div>
   {% endif %}
   {% if ct.servicos_crescendo %}
   <div style="margin:0 20px 16px">
@@ -148,7 +154,7 @@
         {% if sc.usage_type_ofensor %}<span style="font-size:11px;color:var(--text-light);margin-left:6px;font-family:monospace">{{ sc.usage_type_ofensor }}</span>{% endif %}
       </div>
       <div style="display:flex;gap:10px;align-items:center">
-        {% if sc.crescimento_pct %}<span style="color:#dc2626;font-weight:700">+{{ "%.1f"|format(sc.crescimento_pct) }}%</span>{% endif %}
+        {% if sc.crescimento_pct %}<span style="color:var(--red);font-weight:700">+{{ "%.1f"|format(sc.crescimento_pct) }}%</span>{% endif %}
         {% if sc.custo_atual_usd %}<span style="color:var(--text-light);font-size:12px">${{ "%.0f"|format(sc.custo_atual_usd) }}/mês</span>{% endif %}
       </div>
     </div>
@@ -362,7 +368,7 @@
     {% if svc.acao_recomendada %}
     <div style="padding:10px 16px;background:rgba(22,163,74,0.05);border-top:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;gap:12px">
       <span style="font-size:12px;color:var(--navy-mid)">💡 {{ svc.acao_recomendada }}</span>
-      {% if svc.economia_estimada_usd %}<span style="color:#16a34a;font-weight:700;font-size:13px;white-space:nowrap">${{ "%.0f"|format(svc.economia_estimada_usd) }}/mês</span>{% endif %}
+      {% if svc.economia_estimada_usd %}<span style="color:var(--green);font-weight:700;font-size:13px;white-space:nowrap">${{ "%.0f"|format(svc.economia_estimada_usd) }}/mês</span>{% endif %}
     </div>
     {% endif %}
   </div>
@@ -373,7 +379,7 @@
 <!-- Data Transfer Analysis (Section DT) -->
 {% set dt = fin.data_transfer_analysis or {} %}
 {% if dt and dt.total_data_transfer_out_usd and dt.total_data_transfer_out_usd > 0 %}
-{% set _dt_border = '#dc2626' if (dt.vpcs_sem_s3_endpoint or dt.vpcs_sem_dynamodb_endpoint) else '#d97706' %}
+{% set _dt_border = 'var(--red)' if (dt.vpcs_sem_s3_endpoint or dt.vpcs_sem_dynamodb_endpoint) else 'var(--yellow)' %}
 <div class="card" style="margin-bottom:24px;border-left:4px solid {{ _dt_border }}">
   <div class="card-header">
     <span class="card-title">🌐 Análise de Data Transfer</span>
@@ -425,7 +431,7 @@
           {% if r.custo_endpoint %}<span style="font-size:11px;color:var(--text-light);margin-left:6px">{{ r.custo_endpoint }}</span>{% endif %}
           <span class="badge badge-navy" style="font-size:10px;margin-left:6px">esforço: {{ r.esforco }}</span>
         </div>
-        {% if r.economia_estimada_usd %}<span style="color:#16a34a;font-weight:700;font-size:13px;white-space:nowrap">${{ "%.0f"|format(r.economia_estimada_usd) }}/mês</span>{% endif %}
+        {% if r.economia_estimada_usd %}<span style="color:var(--green);font-weight:700;font-size:13px;white-space:nowrap">${{ "%.0f"|format(r.economia_estimada_usd) }}/mês</span>{% endif %}
       </div>
       {% endfor %}
     </div>
@@ -728,10 +734,7 @@ function _updateFinScore(score, label, sub) {
 
 function switchFinOpsAccount(accountId) {
   document.querySelectorAll('.fin-acct-tab').forEach(t => {
-    const active = t.dataset.acct === accountId;
-    t.style.background  = active ? 'var(--pink)' : 'transparent';
-    t.style.color       = active ? '#fff' : 'var(--text-light)';
-    t.style.borderColor = active ? 'var(--pink)' : 'var(--blue-muted)';
+    t.classList.toggle('active', t.dataset.acct === accountId);
   });
 
   if (accountId === 'all') {

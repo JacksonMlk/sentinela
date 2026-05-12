@@ -64,9 +64,9 @@
     <span class="stat-value" id="stat-done" style="color:var(--low)">{{ ns.done }}</span>
     <span class="stat-sub">de {{ quick_wins|length }} itens</span>
   </div>
-  <div class="stat-card" style="border-left-color:#d97706">
+  <div class="stat-card" style="border-left-color:var(--yellow)">
     <span class="stat-label">Em Andamento</span>
-    <span class="stat-value" id="stat-inprogress" style="color:#d97706">{{ ns.inprogress }}</span>
+    <span class="stat-value" id="stat-inprogress" style="color:var(--yellow)">{{ ns.inprogress }}</span>
     <span class="stat-sub">em execução</span>
   </div>
 </div>
@@ -75,7 +75,7 @@
 {% set entry = tracking.get(qw._orig_idx|string) or {} %}
 {% set item_status = entry.get('status') or 'pending' %}
 <div class="action-card" id="item-{{ qw._orig_idx }}" data-idx="{{ qw._orig_idx }}" data-type="quick_wins"
-  style="{% if qw.hidden %}background:#f9fafb;border:1.5px dashed #cbd5e0{% elif item_status == 'done' %}opacity:0.6;border-left:4px solid var(--low){% elif item_status == 'in_progress' %}border-left:4px solid #d97706{% endif %}">
+  style="{% if qw.hidden %}background:var(--hidden-card-bg);border:1.5px dashed var(--hidden-card-border){% elif item_status == 'done' %}opacity:0.6;border-left:4px solid var(--low){% elif item_status == 'in_progress' %}border-left:4px solid var(--high){% endif %}">
   <div class="action-card-header">
     <div style="flex:1">
       <div class="action-card-title" data-field="title" style="{% if qw.hidden %}color:var(--text-light){% endif %}">{{ qw.title }}</div>
@@ -91,7 +91,7 @@
         <span class="status-pill" data-idx="{{ qw._orig_idx }}" data-type="quick_wins" data-status="{{ item_status }}"
           onclick="cycleStatus(this)"
           style="cursor:pointer;display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;user-select:none;
-          {% if item_status == 'done' %}background:rgba(56,161,105,0.15);color:var(--low){% elif item_status == 'in_progress' %}background:rgba(217,119,6,0.15);color:#d97706{% else %}background:var(--blue-card);color:var(--text-light){% endif %}">
+          {% if item_status == 'done' %}background:rgba(56,161,105,0.15);color:var(--low){% elif item_status == 'in_progress' %}background:var(--yellow-dim);color:var(--yellow){% else %}background:var(--blue-card);color:var(--text-light){% endif %}">
           {% if item_status == 'done' %}✅ Concluído{% elif item_status == 'in_progress' %}🔄 Em andamento{% else %}⏳ Pendente{% endif %}
         </span>
         {% if qw.hidden %}
@@ -136,8 +136,8 @@
 {% endif %}
 
 <!-- Edit Modal -->
-<div id="edit-modal" style="display:none;position:fixed;inset:0;background:rgba(11,25,86,0.5);z-index:9000;align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:16px;padding:28px;width:540px;max-width:90vw;box-shadow:0 16px 48px rgba(0,0,0,0.2)">
+<div id="edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9000;align-items:center;justify-content:center">
+  <div style="background:var(--modal-bg);border-radius:16px;padding:28px;width:540px;max-width:90vw;box-shadow:var(--modal-shadow)">
     <h3 style="font-size:16px;font-weight:600;color:var(--navy);margin-bottom:20px">✏️ Editar Item</h3>
     <div style="margin-bottom:14px">
       <label style="font-size:12px;font-weight:600;color:var(--text-light);display:block;margin-bottom:4px">Título</label>
@@ -163,10 +163,10 @@ const STATUS_CYCLE  = ['pending', 'in_progress', 'done'];
 const STATUS_LABELS = {pending: '⏳ Pendente', in_progress: '🔄 Em andamento', done: '✅ Concluído'};
 const STATUS_BG     = {
   pending:     'background:var(--blue-card);color:var(--text-light)',
-  in_progress: 'background:rgba(217,119,6,0.15);color:#d97706',
+  in_progress: 'background:var(--yellow-dim);color:var(--yellow)',
   done:        'background:rgba(56,161,105,0.15);color:var(--low)'
 };
-const STATUS_BORDER = {pending: '', in_progress: 'border-left:4px solid #d97706', done: 'border-left:4px solid var(--low)'};
+const STATUS_BORDER = {pending: '', in_progress: 'border-left:4px solid var(--yellow)', done: 'border-left:4px solid var(--low)'};
 const STATUS_OPACITY = {pending: '1', in_progress: '1', done: '0.6'};
 
 async function cycleStatus(el) {
@@ -187,7 +187,7 @@ async function cycleStatus(el) {
   el.textContent = STATUS_LABELS[next];
   el.setAttribute('style', el.getAttribute('style').replace(/background:[^;]+;color:[^;]+/, '') +
     (next === 'pending' ? 'background:var(--blue-card);color:var(--text-light)' :
-     next === 'in_progress' ? 'background:rgba(217,119,6,0.15);color:#d97706' :
+     next === 'in_progress' ? 'background:var(--yellow-dim);color:var(--yellow)' :
      'background:rgba(56,161,105,0.15);color:var(--low)'));
 
   const card = document.getElementById(`item-${idx}`);
@@ -269,8 +269,8 @@ async function toggleHidden(idx, type, currentlyHidden) {
   const badge = card.querySelector('[style*="OCULTO"]') || card.querySelector('[style*="oculto"]');
 
   if (newHidden) {
-    card.style.background = '#f9fafb';
-    card.style.border = '1.5px dashed #cbd5e0';
+    card.style.background = 'var(--bg-card2)';
+    card.style.border = '1.5px dashed var(--border-md)';
     if (btn) { btn.textContent = '👁 Mostrar'; btn.style.borderColor = 'var(--low)'; btn.style.color = 'var(--low)'; btn.setAttribute('onclick', `toggleHidden(${idx}, '${type}', true)`); }
     // Add hidden badge if not present
     const meta = card.querySelector('.action-meta');
