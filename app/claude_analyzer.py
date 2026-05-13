@@ -204,7 +204,7 @@ def _client() -> anthropic.Anthropic:
     return anthropic.Anthropic(api_key=settings.anthropic_api_key)
 
 
-def _call(prompt: str, max_tokens: int = 16000) -> dict:
+def _call(prompt: str, max_tokens: int = 8000, temperature: float = 0) -> dict:
     """
     Calls Claude with the analysis prompt.
     System prompt is cached (ephemeral) to reduce latency on repeated calls.
@@ -219,6 +219,7 @@ def _call(prompt: str, max_tokens: int = 16000) -> dict:
             response = client.messages.create(
                 model=model,
                 max_tokens=max_tokens,
+                temperature=temperature,
                 system=[
                     {
                         "type": "text",
@@ -640,9 +641,9 @@ Retorne este JSON (todos os campos obrigatórios):
 }}
 
 DADOS AWS:
-{json.dumps(summary, indent=2, default=str)}"""
+{json.dumps(summary, separators=(',', ':'), default=str)}"""
 
-    return _call(prompt, max_tokens=16000)
+    return _call(prompt, max_tokens=8000)
 
 
 def analyze_security(raw_data: dict) -> dict:
@@ -782,9 +783,9 @@ Retorne este JSON:
 }}
 
 DADOS DE SEGURANÇA AWS:
-{json.dumps(summary, indent=2, default=str)}"""
+{json.dumps(summary, separators=(',', ':'), default=str)}"""
 
-    return _call(prompt, max_tokens=16000)
+    return _call(prompt, max_tokens=6000)
 
 
 def generate_assessment_narrative(raw_data: dict, finops_analysis: dict) -> dict:
@@ -930,7 +931,7 @@ PROIBIDO adicionar seções fora da lista acima.
 ════════════════════════════════════════════
 DADOS AWS COLETADOS
 ════════════════════════════════════════════
-{json.dumps(summary, indent=2, default=str)}
+{json.dumps(summary, separators=(',', ':'), default=str)}
 
 ════════════════════════════════════════════
 RETORNE EXATAMENTE ESTE JSON
@@ -981,7 +982,7 @@ INSTRUÇÃO FINAL: Para cada campo null em camadas/melhorias — se há dados re
 {{"titulo": "Nome da Camada", "bullets": ["Bullet rico.", "Segundo bullet."]}}
 Se não há dados suficientes → mantenha null."""
 
-    return _call(prompt, max_tokens=16000)
+    return _call(prompt, max_tokens=10000)
 
 
 def generate_combined_analysis(finops_analysis: dict, security_analysis: dict, raw_data: dict) -> dict:
@@ -1042,7 +1043,7 @@ Exemplo de prioridade máxima: instância EC2 oversized (CPU avg 3%, custo alto)
 aberta para 0.0.0.0/0 = desperdício de dinheiro + superfície de ataque crítica.
 
 DADOS:
-{json.dumps(summary, indent=2, default=str)}
+{json.dumps(summary, separators=(',', ':'), default=str)}
 
 Retorne EXATAMENTE este JSON em Português do Brasil:
 
@@ -1072,4 +1073,4 @@ Retorne EXATAMENTE este JSON em Português do Brasil:
 
 Gere no mínimo 5 itens na matriz_prioridades. Priorize recursos que aparecem em AMBAS as análises."""
 
-    return _call(prompt, max_tokens=16000)
+    return _call(prompt, max_tokens=4000)
