@@ -310,6 +310,19 @@ Sentinela is in **beta** — it works end-to-end and is used in production, but 
 
 ## Future ideas
 
+### Featured direction — Sentinela v2: autonomous remediation agent
+
+Today Sentinela analyzes and reports. v2 would close the loop:
+
+- Operator reviews findings in the dashboard and **approves** what should be fixed
+- A Claude-powered agent executes the remediation: applies bucket policies, tightens IAM, opens a Terraform PR for infra-level changes
+- **Dry-run mode** shows the exact diff that would be applied before any action touches the account
+- Every action is logged with the approver, the rationale, and the rollback step
+
+This is the natural next step from *"what should I do?"* to *"do it for me, with my approval."*
+
+### Other directions
+
 Not a formal roadmap — directions that make sense. No timelines.
 
 - [ ] Multi-cloud support (GCP first, then Azure)
