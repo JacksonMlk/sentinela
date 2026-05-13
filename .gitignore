@@ -1,8 +1,36 @@
-venv/
+# Python
 __pycache__/
-*.pyc
-*.db
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Environment & secrets
 .env
-*.log
-.DS_Store
+.env.*
+!.env.example
 k8s/secret.yaml
+
+# Databases / local data
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+
+# IDE / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Build / dist
+build/
+dist/
+*.egg-info/
