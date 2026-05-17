@@ -1,0 +1,32 @@
+{
+  "presente": true,
+  "intro": "O ambiente do <CLIENTE> possui múltiplos usuários IAM em uso simultâneo, incluindo usuários de serviço para integrações (S3, SQS, SES, monitoramento, ECS), usuários humanos nominais e usuários legados sem uso recente. A gestão de acesso é predominantemente local (sem federação via IAM Identity Center), com vários colaboradores e aplicações operando com Access Keys de longa duração.",
+  "seguranca": [
+    "Identificados diversos usuários com Access Keys ativas que apresentam idade superior a 365 dias sem rotação, contrariando a recomendação de rotação a cada 90 dias. Chaves antigas em sistemas comprometidos são reutilizáveis indefinidamente.",
+    "Contas humanas nominais possuem credenciais programáticas (Access Keys) ativas simultaneamente ao acesso por console — padrão que duplica a superfície de ataque e dificulta rastreio de uso indevido via CloudTrail.",
+    "Identificados usuários com múltiplas Access Keys ativas ao mesmo tempo, prática que dificulta rotação controlada e auditoria.",
+    "Identificados usuários IAM legados sem uso recente (login_last_used > 180 dias) que continuam com permissões ativas e representam vetor de comprometimento por credenciais esquecidas.",
+    "Identificadas políticas IAM com permissões excessivamente amplas (Action: *, Resource: *) anexadas a usuários e roles de aplicação — violação direta do princípio de menor privilégio."
+  ],
+  "arquitetura": [
+    "Modelo de acesso local-only: cada conta AWS gerencia seus próprios usuários IAM, sem federação central via AWS IAM Identity Center.",
+    "Aplicações em ECS utilizam usuários IAM dedicados com Access Keys em vez de IAM Roles via Task Role — padrão menos seguro e mais difícil de rotacionar.",
+    "Pipelines de CI/CD utilizam Access Keys estáticas armazenadas como secrets do repositório em vez de OIDC Federation, expondo credenciais a vazamentos por má configuração de pipelines."
+  ],
+  "guide_list": [
+    {"text": "Habilitar MFA em todas as contas humanas; bloquear console login para contas sem MFA.", "severity": "critical"},
+    {"text": "Garantir que a conta root tenha MFA habilitado e nenhuma Access Key ativa.", "severity": "critical"},
+    {"text": "Migrar acesso humano para AWS IAM Identity Center (SSO) integrado ao provedor de identidade corporativo (Google Workspace, Azure AD, Okta).", "severity": "high"},
+    {"text": "Substituir Access Keys de aplicações em ECS/Lambda por IAM Roles via Task Role / Execution Role.", "severity": "high"},
+    {"text": "Migrar pipelines CI/CD para OIDC Federation (GitHub Actions, GitLab CI) — elimina Access Keys persistidas em secrets do repositório.", "severity": "high"},
+    {"text": "Implementar rotação automática de Access Keys remanescentes (máximo 90 dias) e desativar chaves não utilizadas há mais de 30 dias.", "severity": "medium"},
+    {"text": "Remover usuários IAM inativos há mais de 90 dias após validação com gestor responsável.", "severity": "medium"},
+    {"text": "Aplicar IAM Access Analyzer para detectar políticas com acesso externo não intencional e revisar trimestralmente.", "severity": "medium"}
+  ],
+  "melhorias": [
+    "Migrar para AWS IAM Identity Center: federar acesso humano via SAML/OIDC integrado ao provedor corporativo, eliminando usuários IAM locais e centralizando o ciclo de vida de acessos. Provisionamento e desprovisionamento passam a ser automáticos quando colaborador entra ou sai.",
+    "Aplicar princípio de menor privilégio: revisar políticas IAM em uso, substituindo AdministratorAccess por permission sets escopo-específicos via tags ou condições (ex.: aws:RequestTag/Environment=development para developers de não-prod).",
+    "Eliminar Access Keys de aplicações: refatorar ECS Task Definitions para usar Task Roles; Lambda functions para usar Execution Roles. Adotar OIDC federation para pipelines CI/CD em vez de keys estáticas.",
+    "Implementar revisão trimestral de acessos via IAM Access Advisor — identifica permissões concedidas mas nunca utilizadas, candidatas a remoção."
+  ]
+}

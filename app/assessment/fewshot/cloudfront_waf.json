@@ -1,0 +1,28 @@
+{
+  "presente": true,
+  "intro": "O ambiente do <CLIENTE> opera 7 Web ACLs distintas no AWS WAFv2 na região us-east-1, aplicadas a diferentes distribuições CloudFront e Application Load Balancers que expõem domínios e subdomínios públicos. Identificada redundância significativa: as 7 ACLs apresentam conjuntos de regras (Rules) praticamente idênticos, replicados manualmente por domínio sem governança centralizada.",
+  "seguranca": [
+    "Identificada inconsistência potencial de proteção: como as regras são replicadas manualmente entre as 7 Web ACLs, atualizações de regra (ex.: nova regra contra ataque emergente) podem ser aplicadas a algumas ACLs mas esquecidas em outras, deixando subdomínios temporariamente desprotegidos.",
+    "Distribuições CloudFront identificadas sem WAF associado (<distribution_id_1>, <distribution_id_2>) recebem tráfego sem inspeção de camada 7 — vulneráveis a OWASP Top 10 (SQL injection, XSS, request flooding).",
+    "Identificadas distribuições CloudFront servindo origens S3 sem Origin Access Control (OAC) ou Origin Access Identity (OAI) — bucket S3 origem aceita requests diretos via internet, anulando o controle de cache e WAF do CloudFront."
+  ],
+  "arquitetura": [
+    "Gestão fragmentada: cada Web ACL tem custo fixo mensal próprio (≈$5/mês por ACL + custo por regra processada), o que multiplica custos operacionais sem ganho de segurança.",
+    "Sem integração com AWS Firewall Manager — atualizações de baseline de segurança não são propagadas automaticamente entre as ACLs.",
+    "WAF logs (quando configurados) vão para destinos diferentes por ACL, dificultando análise consolidada de ataques cross-domain."
+  ],
+  "guide_list": [
+    {"text": "Consolidar as 7 Web ACLs em 1 Web ACL Regional + 1 Web ACL CLOUDFRONT scope, com regras gerenciadas centralmente.", "severity": "high"},
+    {"text": "Associar todas as distribuições CloudFront e ALBs ao WAF correspondente; nenhuma distribuição pública sem WAF.", "severity": "high"},
+    {"text": "Adotar AWS Managed Rules Common Rule Set + Known Bad Inputs + IP Reputation List como baseline mínima.", "severity": "high"},
+    {"text": "Configurar Origin Access Control (OAC) em todas as distribuições CloudFront com origem S3, bloqueando acesso direto ao bucket.", "severity": "high"},
+    {"text": "Configurar WAF logs centralizados para S3 com retenção 90 dias + análise via Athena para detectar padrões de ataque cross-domain.", "severity": "medium"},
+    {"text": "Avaliar AWS Firewall Manager para propagação automática de baselines de segurança em múltiplas contas/regiões.", "severity": "low"}
+  ],
+  "melhorias": [
+    "Consolidar as 7 Web ACLs em arquitetura padronizada: 1 Web ACL Regional (cobrindo todos os ALBs) + 1 Web ACL CLOUDFRONT (cobrindo todas as distribuições). Reduz custo fixo em ~70% e elimina drift de regras entre domínios.",
+    "Adotar Managed Rule Groups da AWS como camada base (Common, Known Bad Inputs, SQL Database, Linux, IP Reputation), liberando esforço para construir apenas as regras customizadas específicas do negócio.",
+    "Implementar AWS Firewall Manager se houver intenção de expandir para múltiplas contas via Organizations — propagação centralizada de baselines de segurança a partir de uma conta administradora.",
+    "Configurar Origin Access Control em todas as distribuições CloudFront com origem S3 — buckets de origem ficam privados e só aceitam requests assinados pelo CloudFront."
+  ]
+}

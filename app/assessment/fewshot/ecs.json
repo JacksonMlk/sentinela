@@ -1,0 +1,28 @@
+{
+  "presente": true,
+  "intro": "O ambiente do <CLIENTE> opera 18 clusters ECS baseados em EC2 launch type (não Fargate), distribuídos entre produção, staging, dev e QA. As instâncias utilizam famílias t3, r5, r6, m7 e r8 com Auto Scaling Group habilitado em todos os clusters. Identificado que as instâncias EC2 dos clusters possuem IPs públicos, expondo workloads ao tráfego direto da internet.",
+  "seguranca": [
+    "Identificada exposição de segredos em variáveis de ambiente nos Task Definitions de múltiplas aplicações (ex.: <API_FINANCE>, <API_ECOMMERCE>), onde credenciais sensíveis são passadas diretamente como envs em vez de referenciar AWS Secrets Manager. Em caso de comprometimento do container, credenciais ficam expostas via aws ecs describe-tasks.",
+    "Containers em produção e QA operam sem readonlyRootFilesystem habilitado, permitindo escrita no sistema de arquivos raiz e facilitando persistência de atacantes via instalação de binários ou modificação de configurações.",
+    "Instâncias EC2 dos clusters ECS recebem IPs públicos automaticamente, expondo a porta do agente ECS e endpoints internos a scans de internet."
+  ],
+  "arquitetura": [
+    "18 clusters ECS rodando em EC2 launch type — cada cluster mantém seu próprio plano de controle e capacity providers, gerando overhead operacional alto para padronização de deploys e gestão de capacidade.",
+    "Tasks de produção executam em instâncias EC2 com Auto Scaling Group configurado, mas sem visibilidade granular de utilização por serviço — métricas de Container Insights não habilitadas em parte dos clusters.",
+    "Famílias heterogêneas em uso (t3, r5, r6, m7, r8) — falta padronização de capacity providers, dificultando otimização de custo via Savings Plans direcionados."
+  ],
+  "guide_list": [
+    {"text": "Migrar credenciais de Task Definitions para AWS Secrets Manager via valueFrom.", "severity": "critical"},
+    {"text": "Habilitar readonlyRootFilesystem em todos os containers de produção.", "severity": "high"},
+    {"text": "Garantir que nenhuma instância EC2 do cluster tenha IP público — usar apenas subnets privadas com NAT Gateway.", "severity": "high"},
+    {"text": "Habilitar Container Insights nos clusters críticos para visibilidade de CPU/memória por serviço.", "severity": "medium"},
+    {"text": "Avaliar consolidação dos 18 clusters em arquitetura unificada (Amazon EKS com namespaces lógicos ou ECS com Capacity Providers consolidados).", "severity": "medium"}
+  ],
+  "melhorias": [
+    "Consolidação de clusters: transicionar os 18 clusters ECS para uma arquitetura Amazon EKS unificada com namespaces (prod, staging, dev, qa) — reduz o custo fixo de planos de controle, simplifica gestão de rede e padroniza deploys via Helm Charts.",
+    "Padronização via Helm Charts: definir Deployments, CronJobs e Services de forma declarativa em values.yaml, eliminando deriva entre ambientes.",
+    "Injeção segura de variáveis: substituir variáveis de ambiente em Task Definitions por referências ao AWS SSM Parameter Store, resolvendo a falha de exposição de segredos identificada pelo Security Hub.",
+    "Migração de observabilidade para Prometheus + Grafana: descontinuar CloudWatch Container Insights Enhanced Observability (custo elevado por cardinalidade de métricas) em favor de stack open source com TSDB próprio.",
+    "Adoção de Karpenter para provisionamento de nós sob demanda real, atacando ociosidade de CPU e nodes nas instâncias EC2 atuais."
+  ]
+}

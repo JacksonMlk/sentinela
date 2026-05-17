@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>{% block title %}FinOps & Security Analyzer{% endblock %} — Sentinela</title>
+  <title>{% block title %}FinOps & Security Analyzer{% endblock %} — {{ product_name }}</title>
   <script>(function(){
+    // 'sentinela-theme' is a stable localStorage key — intentionally not renamed to avoid breaking existing users
     var t=localStorage.getItem('sentinela-theme')||'light';
     var html=document.documentElement;
     if(t==='light'){html.setAttribute('data-theme','light');}
@@ -861,7 +862,7 @@
           </svg>
         </div>
         <div>
-          <div class="brand-name">Sentinela</div>
+          <div class="brand-name">{{ product_name }}</div>
           <div class="brand-sub">FinOps &amp; Security</div>
         </div>
       </div>
@@ -960,7 +961,7 @@
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
         </div>
         <div>
-          <div style="font-weight:600;color:var(--text);font-size:11px">Sentinela Admin</div>
+          <div style="font-weight:600;color:var(--text);font-size:11px">{{ product_name }} Admin</div>
           <div style="font-size:10px">Painel operacional</div>
         </div>
       </div>
@@ -983,7 +984,7 @@
         </div>
       </div>
       <div style="margin-left:auto;font-size:10px;color:var(--text-3)">
-        Powered by <strong style="color:var(--orange)">Sentinela</strong>
+        Powered by <strong style="color:var(--orange)">{{ product_name }}</strong>
       </div>
     </footer>
     {% endblock %}

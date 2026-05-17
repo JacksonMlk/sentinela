@@ -7,7 +7,7 @@
   @page {
     margin: 20mm 18mm;
     @top-right {
-      content: "Sentinela · {{ client.company }}";
+      content: "{{ product_name }} · {{ client.company }}";
       font-size: 9pt;
       color: #888;
     }
@@ -316,7 +316,7 @@
      CAPA
 ════════════════════════════════════════════════════ -->
 <div class="cover">
-  <div class="cover-badge">RELATÓRIO MENSAL · DREAMSQUAD</div>
+  <div class="cover-badge">RELATÓRIO MENSAL{% if consultancy_name %} · {{ consultancy_name|upper }}{% endif %}</div>
   <div class="cover-title">Análise de Custos<br>e Segurança AWS</div>
   <div class="cover-sub">{{ client.company }}</div>
   <div class="cover-divider"></div>
@@ -682,7 +682,7 @@
 
   <p style="font-size:9pt;color:var(--gray);margin-top:16pt;font-style:italic">
     Relatório gerado automaticamente em {{ today.strftime('%d/%m/%Y às %H:%M') }} UTC
-    pela plataforma Sentinela. Para acompanhamento do progresso de cada ação,
+    pela plataforma {{ product_name }}. Para acompanhamento do progresso de cada ação,
     acesse o portal do cliente.
   </p>
 </div>

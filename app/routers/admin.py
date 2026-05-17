@@ -2,7 +2,6 @@ import threading
 import time
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, Request, Form, HTTPException
-from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse, JSONResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -10,9 +9,10 @@ from app.database import get_db
 from app.models import Client, AnalysisReport
 from app import aws_analyzer, claude_analyzer
 from app.aws_analyzer import AnalysisCancelledError
+from app.templates_helper import get_templates
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
+templates = get_templates()
 
 
 # ---------------------------------------------------------------------------
@@ -72,7 +72,7 @@ def _log(report_id: int, status: str, message: str) -> None:
 def run_analysis_job(report_id: int, client_id: int, role_arns: list, regions: str,
                      db_url: str, cancel_event: threading.Event,
                      account_mode: str = "organization"):
-    """Run in a daemon thread: collect AWS data, call Gemini, save results."""
+    """Run in a daemon thread: collect AWS data, call Claude AI, save results."""
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
 
@@ -165,7 +165,7 @@ def run_analysis_job(report_id: int, client_id: int, role_arns: list, regions: s
         if cancel_event.is_set():
             raise AnalysisCancelledError("Análise cancelada pelo usuário.")
 
-        _log(report_id, "running", "Analisando FinOps com Gemini AI (pode levar 1–2 min)...")
+        _log(report_id, "running", "Analisando FinOps com Claude AI (pode levar 1–2 min)...")
         ai_errors = []
         finops_result: dict = {}
         security_result: dict = {}
@@ -200,7 +200,7 @@ def run_analysis_job(report_id: int, client_id: int, role_arns: list, regions: s
         if cancel_event.is_set():
             raise AnalysisCancelledError("Análise cancelada pelo usuário.")
 
-        _log(report_id, "running", "Analisando Segurança com Gemini AI (pode levar 1–2 min)...")
+        _log(report_id, "running", "Analisando Segurança com Claude AI (pode levar 1–2 min)...")
         try:
             security_result = claude_analyzer.analyze_security(raw_data)
             critical = security_result.get("critical_findings_count", 0)
@@ -321,7 +321,7 @@ def _start_analysis(report_id: int, client_id: int, role_arns: list,
 # ---------------------------------------------------------------------------
 
 def run_ai_only_job(report_id: int, db_url: str, cancel_event: threading.Event):
-    """Re-run only the Gemini AI steps using the existing report's raw_data."""
+    """Re-run only the Claude AI steps using the existing report's raw_data."""
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
 
@@ -1014,8 +1014,13 @@ async def reanalyze_ai(
 
 @router.get("/reports/{report_id}/download-assessment")
 async def download_assessment(report_id: int, db: Session = Depends(get_db)):
-    """Generate and download a professional AWS Assessment DOCX for the given report."""
+    """Generate and download a professional AWS Assessment DOCX.
+
+    Note: this endpoint is slow (2-4 min) because it makes one Claude call
+    per applicable service section + one for the globals.
+    """
     from app.report_generator import generate_assessment_docx
+    from app.assessment.orchestrator import generate_assessment
 
     report = db.query(AnalysisReport).filter(AnalysisReport.id == report_id).first()
     if not report:
@@ -1027,7 +1032,12 @@ async def download_assessment(report_id: int, db: Session = Depends(get_db)):
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
 
-    buf = generate_assessment_docx(report, client)
+    raw_data = report.raw_data or {}
+    finops_analysis = report.rightsizing_recommendations or {}
+
+    assessment = generate_assessment(raw_data, finops_analysis)
+
+    buf = generate_assessment_docx(report, client, assessment)
     safe_name = client.company.replace(" ", "_").replace("/", "-")
     date_str  = datetime.utcnow().strftime("%Y%m%d")
     filename  = f"Assessment_{safe_name}_{date_str}.docx"
@@ -1230,7 +1240,7 @@ async def cloudtrail_audit(
     db: Session = Depends(get_db),
 ):
     """
-    On-demand CloudTrail query: find resources created by non-DreamSquad principals
+    On-demand CloudTrail query: find resources created by external/unauthorized principals
     in the last 1–30 days across all configured regions for this client.
     """
     client = db.query(Client).filter(Client.id == client_id).first()

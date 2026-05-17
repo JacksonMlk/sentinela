@@ -113,7 +113,7 @@
 
 <!-- Print actions bar -->
 <div class="print-bar">
-  <span class="brand">Sentinela — Assessment {{ client.company }}</span>
+  <span class="brand">{{ product_name }} — Assessment {{ client.company }}</span>
   <div class="actions">
     <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
     <button class="btn-close" onclick="window.close()">✕ Fechar</button>
@@ -132,7 +132,7 @@
       <div><strong>Data do relatório</strong></div>
       <div>{{ report.completed_at.strftime('%d/%m/%Y') if report.completed_at else report.started_at.strftime('%d/%m/%Y') if report.started_at else '—' }}</div>
       <div style="margin-top:6px"><strong>Gerado por</strong></div>
-      <div>Sentinela × Claude AI</div>
+      <div>{{ product_name }} × Claude AI</div>
     </div>
   </div>
 
@@ -375,7 +375,7 @@
 
   <!-- Footer -->
   <div class="report-footer">
-    <span>Gerado por <strong>Sentinela</strong> com Claude AI &nbsp;·&nbsp; Análise de FinOps &amp; Segurança AWS</span>
+    <span>Gerado por <strong>{{ product_name }}</strong> com Claude AI &nbsp;·&nbsp; Análise de FinOps &amp; Segurança AWS</span>
     <span>Relatório #{{ report.id }} &nbsp;·&nbsp; {{ report.completed_at.strftime('%d/%m/%Y %H:%M') if report.completed_at else '—' }}</span>
   </div>
 

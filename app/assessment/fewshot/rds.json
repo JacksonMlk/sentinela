@@ -1,0 +1,33 @@
+{
+  "presente": true,
+  "intro": "O ambiente do <CLIENTE> opera bancos RDS em produção e QA, incluindo as instâncias <DB_PRINCIPAL_1>, <DB_PRINCIPAL_2>, <DB_PRINCIPAL_3> em produção e <DB_QA> em QA. Identificado que o portfólio de RDS não possui Reserved Instances (RI) ativas — 100% do custo é faturado sob preço On-Demand. Adicionalmente, métricas de CloudWatch indicam que pelo menos 2 instâncias operam consistentemente com CPUUtilization abaixo de 20% (com raros spikes a 37%), sugerindo oportunidade de rightsizing.",
+  "seguranca": [
+    "Identificadas instâncias RDS sem encryption at-rest habilitado em <DB_QA> e potencialmente outras — dados sensíveis persistidos sem criptografia padrão, falha grave em auditoria de compliance.",
+    "Bancos de produção <DB_PRINCIPAL_1>, <DB_PRINCIPAL_2> não possuem Deletion Protection habilitado — operação acidental ou maliciosa pode causar perda irrecuperável de dados em alguns segundos.",
+    "Sem rotação automatizada de credenciais via AWS Secrets Manager — senhas mestres provavelmente em rotação manual ou estáticas há mais de 90 dias.",
+    "Identificados Security Groups associados a instâncias RDS com regras permissivas (CIDR amplo ou referência a SG sem escopo definido) — superfície de exposição maior que o necessário."
+  ],
+  "arquitetura": [
+    "Instâncias <DB_QA> e <DB_PRINCIPAL_3> superdimensionadas: CPU média 14 dias abaixo de 20%, com spike máximo a 37% — perfil claro de rightsizing para classe imediatamente inferior.",
+    "Sem Multi-AZ identificado nas instâncias de produção — failover não é automático em caso de falha da AZ, indisponibilidade pode chegar a 30+ minutos durante incidentes.",
+    "Engines em versões em extended support pago (ex.: MySQL 5.7, PostgreSQL 11) — custo extra de $0,10/vCPU-hora aplicado mensalmente até upgrade para versão suportada.",
+    "Backups automáticos com retenção padrão (7 dias) — instâncias críticas deveriam ter retenção mínima de 30 dias para recuperação de incidentes de descoberta tardia."
+  ],
+  "guide_list": [
+    {"text": "Habilitar Multi-AZ em todas as instâncias RDS de produção para failover automático.", "severity": "critical"},
+    {"text": "Habilitar Deletion Protection em todas as instâncias de produção.", "severity": "high"},
+    {"text": "Migrar credenciais para AWS Secrets Manager com rotação automática habilitada (30-60 dias).", "severity": "high"},
+    {"text": "Adquirir Reserved Instances para instâncias de produção estáveis (perfil de carga previsível, 12+ meses de operação).", "severity": "high"},
+    {"text": "Planejar upgrade de engines em extended support para versões suportadas dentro de 90 dias.", "severity": "high"},
+    {"text": "Habilitar encryption at-rest em todas as instâncias; instâncias legadas exigem snapshot + restore para aplicar.", "severity": "high"},
+    {"text": "Implementar rightsizing nas instâncias com CPU média < 20% por 14+ dias.", "severity": "medium"},
+    {"text": "Aumentar retenção de backups automáticos para 30 dias em instâncias críticas.", "severity": "medium"},
+    {"text": "Habilitar Performance Insights e Enhanced Monitoring para diagnóstico granular de queries lentas e gargalos.", "severity": "low"}
+  ],
+  "melhorias": [
+    "Adquirir Reserved Instances para <DB_PRINCIPAL_1>, <DB_PRINCIPAL_2>, <DB_PRINCIPAL_3> — perfil de carga estável (12+ meses) é ideal para RI de 1-3 anos. Redução estimada de 30-45% no custo fixo dessas instâncias, equivalente a economia significativa anual.",
+    "Rightsizing de <DB_QA> e <DB_PRINCIPAL_3>: avaliar migração para classe imediatamente inferior baseado em CloudWatch (CPUUtilization, FreeMemory, IOPS). Validação com pgBench/sysbench em ambiente de staging antes de aplicar em produção.",
+    "Plano de upgrade de versões: migrar instâncias em extended support para versão suportada (ex.: MySQL 5.7 → 8.0, PostgreSQL 11 → 16) eliminando cobrança extra de $0,10/vCPU-hora. Realizar em janela de manutenção controlada com snapshot prévio e teste de regressão.",
+    "Migrar credenciais para AWS Secrets Manager com rotação automática + habilitar Deletion Protection + Multi-AZ em todas as instâncias críticas como baseline operacional."
+  ]
+}

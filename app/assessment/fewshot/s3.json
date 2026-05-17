@@ -1,0 +1,28 @@
+{
+  "presente": true,
+  "intro": "O ambiente do <CLIENTE> utiliza S3 para armazenamento de logs operacionais, assets estáticos e dados de aplicações. Identificados diversos buckets sem políticas de Lifecycle configuradas, incluindo repositórios de logs como <BUCKET_WAF_LOGS> que ultrapassa 3 TB acumulados na classe Standard, e múltiplos buckets com Block Public Access desabilitado — alguns aparentemente intencionais (CDN/assets) mas não distinguidos por padrão de nomenclatura.",
+  "seguranca": [
+    "Identificados buckets com Block Public Access desabilitado em nível de bucket, sem que a conta tenha BlockPublicAccess habilitado em nível de conta — qualquer descuido em policy ou ACL futura pode expor dados sensíveis.",
+    "Buckets de logs operacionais (ex.: <BUCKET_WAF_LOGS>, <BUCKET_CLOUDTRAIL>) não possuem versionamento nem MFA Delete habilitado, deixando logs de auditoria suscetíveis a deleção acidental ou maliciosa.",
+    "Identificados buckets sem default encryption (SSE-S3 ou SSE-KMS) habilitado — objetos novos podem ser carregados sem criptografia at-rest dependendo do cliente que faz o upload."
+  ],
+  "arquitetura": [
+    "Padrão de nomenclatura de buckets sem prefixo de ambiente (prod-, staging-) — dificulta a auditoria automatizada e a aplicação seletiva de políticas por estágio.",
+    "Versionamento ativo em parte dos buckets de aplicação, sem Lifecycle correspondente para expiração de versões antigas — gera crescimento de custo invisível.",
+    "Buckets de logs (<BUCKET_WAF_LOGS> com mais de 3 TB) operam na classe Standard sem transição para Intelligent-Tiering ou Glacier — todo o histórico paga preço máximo de storage."
+  ],
+  "guide_list": [
+    {"text": "Habilitar S3 Block Public Access em nível de conta; criar exceções explícitas via bucket policy apenas para buckets intencionalmente públicos (CDN).", "severity": "high"},
+    {"text": "Implementar Lifecycle Policies em todos os buckets de log: transição para S3 Intelligent-Tiering após 30 dias, S3 Glacier Instant Retrieval após 90 dias, expiração permanente conforme requisito de compliance (90/180 dias).", "severity": "high"},
+    {"text": "Habilitar default encryption (SSE-S3 mínimo, SSE-KMS para dados sensíveis) em todos os buckets.", "severity": "high"},
+    {"text": "Habilitar versionamento + MFA Delete em buckets de logs de auditoria (CloudTrail, WAF, ALB) para garantir imutabilidade.", "severity": "medium"},
+    {"text": "Habilitar S3 Access Logs ou CloudTrail Data Events em buckets sensíveis para rastrear acesso a objetos.", "severity": "medium"},
+    {"text": "Padronizar nomenclatura: '<env>-<purpose>-<account_id>' para distinguir buckets por ambiente e facilitar audit policies.", "severity": "low"}
+  ],
+  "melhorias": [
+    "Otimização de storage: configurar S3 Lifecycle em buckets de logs (>3 TB acumulados identificados) com transição automática para classes mais econômicas — redução estimada de 60-80% no custo de storage daqueles buckets.",
+    "Adotar S3 Intelligent-Tiering como classe padrão para buckets de aplicação com padrão de acesso desconhecido, eliminando necessidade de tuning manual de classes.",
+    "Implementar audit baseline: CloudTrail Data Events habilitado em buckets críticos + análise periódica via S3 Storage Lens para identificar buckets órfãos e desperdício.",
+    "Migrar buckets de logs de compliance para S3 Object Lock + WORM mode com retenção fixa — garante imutabilidade exigida em auditorias regulatórias."
+  ]
+}

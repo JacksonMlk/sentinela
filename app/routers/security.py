@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, Request, HTTPException
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Client, AnalysisReport
+from app.templates_helper import get_templates
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
+templates = get_templates()
 
 
 def get_latest_report(client_id: int, db: Session) -> AnalysisReport | None:

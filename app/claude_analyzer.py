@@ -201,10 +201,11 @@ def _extract_rightsizing(recs: list) -> list:
 # ---------------------------------------------------------------------------
 
 def _client() -> anthropic.Anthropic:
-    return anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    # Pass None if key is empty so the SDK falls back to ANTHROPIC_API_KEY env var
+    return anthropic.Anthropic(api_key=settings.anthropic_api_key or None)
 
 
-def _call(prompt: str, max_tokens: int = 8000, temperature: float = 0) -> dict:
+def _call(prompt: str, max_tokens: int = 8000) -> dict:
     """
     Calls Claude with the analysis prompt.
     System prompt is cached (ephemeral) to reduce latency on repeated calls.
@@ -219,7 +220,6 @@ def _call(prompt: str, max_tokens: int = 8000, temperature: float = 0) -> dict:
             response = client.messages.create(
                 model=model,
                 max_tokens=max_tokens,
-                temperature=temperature,
                 system=[
                     {
                         "type": "text",

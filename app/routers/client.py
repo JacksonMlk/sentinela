@@ -4,15 +4,15 @@ Access via: /portal  (login form)
       or:  /portal/{token}  (direct link)
 """
 from fastapi import APIRouter, Depends, Request, Form, HTTPException
-from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Client, AnalysisReport
+from app.templates_helper import get_templates
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
+templates = get_templates()
 
 
 # ---------------------------------------------------------------------------

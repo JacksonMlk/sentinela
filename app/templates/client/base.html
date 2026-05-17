@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>{% block title %}Portal{% endblock %} — Sentinela</title>
+  <title>{% block title %}Portal{% endblock %} — {{ product_name }}</title>
   <script>(function(){
+    // 'sentinela-theme' is a stable localStorage key — intentionally not renamed to avoid breaking existing users
     var t=localStorage.getItem('sentinela-theme')||'light';
     var h=document.documentElement;
     if(t==='light'){h.setAttribute('data-theme','light');}
@@ -540,7 +541,7 @@
       </svg>
     </div>
     <div>
-      <div class="brand-name">Sentinela</div>
+      <div class="brand-name">{{ product_name }}</div>
       <div class="brand-sub">FinOps &amp; Security</div>
     </div>
   </div>
@@ -701,7 +702,7 @@
     </div>
     {% endif %}
     <div style="font-size:10px;color:var(--text-3);{% if not report %}margin-left:auto{% endif %}">
-      Powered by <strong style="color:var(--orange)">Sentinela</strong> × Claude AI
+      Powered by <strong style="color:var(--orange)">{{ product_name }}</strong> × Claude AI
     </div>
   </footer>
 </div>

@@ -1,0 +1,29 @@
+{
+  "presente": true,
+  "intro": "O AWS Security Hub está habilitado no ambiente do <CLIENTE> com integração ativa ao AWS Config, gerando achados contínuos baseados em controles CIS AWS Foundations Benchmark e AWS Foundational Security Best Practices. A configuração atual está funcional e captura desvios em tempo real, porém o backlog de findings críticos e altos não está sendo endereçado de forma sistemática.",
+  "seguranca": [
+    "Identificadas múltiplas falhas de conformidade na categoria 'ECS Task Definitions com variáveis de ambiente sensíveis' — credenciais como DB_PASSWORD, API_KEY expostas em Task Definitions de pelo menos 4 serviços (<API_FINANCE>, <API_ECOMMERCE>, <SERVICO_X>, <SERVICO_Y>).",
+    "Falhas recorrentes em 'Containers should run with read-only root filesystem' em produção e QA — escopo amplo, não há plano de remediação ativo.",
+    "Findings de severidade CRITICAL com mais de 30 dias sem resolução ou exceção justificada — backlog não está sendo gerenciado por SLA.",
+    "Identificadas falhas em 'IAM root user should not have access keys' e 'IAM root user MFA should be enabled' — controles fundamentais ainda pendentes."
+  ],
+  "arquitetura": [
+    "Security Hub está habilitado apenas na região us-east-1; outras regiões em uso (sa-east-1 e outras) ficam sem visibilidade automática de findings.",
+    "Sem integração com sistema de tickets (Jira, ServiceNow) — findings ficam apenas no console, dependendo de revisão manual periódica.",
+    "AWS Config está configurado mas Conformance Packs adicionais (PCI-DSS, LGPD, HIPAA) não estão ativados — auditoria de compliance regulatório não está coberta.",
+    "Sem Delegated Administrator configurado no AWS Organizations — findings ficam isolados na conta onde ocorrem, sem visibilidade consolidada."
+  ],
+  "guide_list": [
+    {"text": "Definir SLA de remediação por severidade: CRITICAL em 7 dias, HIGH em 30 dias, MEDIUM em 90 dias; rastrear backlog via dashboard.", "severity": "high"},
+    {"text": "Habilitar Security Hub em todas as regiões com workloads ativas; consolidar findings via Delegated Administrator no AWS Organizations.", "severity": "high"},
+    {"text": "Integrar Security Hub Findings com EventBridge → Lambda/SNS para criar tickets automáticos a partir de severity HIGH/CRITICAL.", "severity": "medium"},
+    {"text": "Habilitar Conformance Packs relevantes para o setor do negócio (ex.: AWS-Operational-Best-Practices-for-LGPD se aplicável; PCI-DSS para empresas que processam cartão).", "severity": "medium"},
+    {"text": "Implementar Security Hub Insights customizadas para acompanhar métricas de postura ao longo do tempo (MTTR de findings, distribuição por severidade).", "severity": "low"}
+  ],
+  "melhorias": [
+    "Estabelecer processo formal de gestão de findings: dashboard executivo com MTTR por severidade, runbooks de remediação para padrões recorrentes (segredos em env, root filesystem read/write, IAM permissive policies).",
+    "Habilitar Security Hub Delegated Administrator quando o ambiente for migrado para AWS Organizations — consolida findings de todas as contas em uma conta de segurança dedicada, com retenção e auditoria centralizada.",
+    "Automatizar remediação de findings de baixo risco via AWS Systems Manager Automation runbooks (ex.: habilitar versionamento S3, habilitar criptografia padrão em buckets recém-criados, anexar política de bloqueio de público a buckets).",
+    "Ativar Amazon GuardDuty + Macie em conjunto com Security Hub para visão integrada de ameaças ativas + classificação de dados sensíveis em S3."
+  ]
+}

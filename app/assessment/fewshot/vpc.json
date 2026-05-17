@@ -1,0 +1,31 @@
+{
+  "presente": true,
+  "intro": "O ambiente do <CLIENTE> utiliza 4 VPCs dedicadas para segregação de ambientes (dev: 172.16.0.0/16, staging: 172.19.0.0/16, qa: 172.17.0.0/16, prod: 172.18.0.0/16), totalizando mais de 100 subnets distribuídas entre as VPCs. Identificado que todas as subnets estão configuradas como públicas, com rota direta para o Internet Gateway, sem implementação de NAT Gateway nem VPC Endpoints — instâncias EC2, incluindo workloads de produção, recebem IP público automaticamente.",
+  "seguranca": [
+    "Identificados Security Groups com regras 0.0.0.0/0 para portas sensíveis (22 SSH, 3306 MySQL, 5432 PostgreSQL) associados a instâncias EC2 com IP público — qualquer scan de internet alcança diretamente os endpoints de banco e administração.",
+    "Subnets nomeadas como '<vpc>-pvt-processors-a/d' possuem a flag MapPublicIpOnLaunch ativada, contradizendo a intenção semântica de privacidade — workloads que deveriam estar isolados recebem IP público automaticamente.",
+    "Subnets de banco de dados (<vpc>-db-database-a/b) também possuem MapPublicIpOnLaunch ativado, expondo instâncias RDS recém-criadas ao tráfego direto da internet em caso de IP público.",
+    "Identificado tráfego significativo de saída via Internet Gateway que deveria estar passando por VPC Endpoints (S3, DynamoDB) — sem endpoint configurado, requests internas a esses serviços geram custo de NAT/data transfer desnecessário e abrem brecha de exfiltração."
+  ],
+  "arquitetura": [
+    "Modelo de rede plano com 4 VPCs sem interligação via Transit Gateway ou VPC Peering — comunicação cross-environment depende de tráfego pela internet pública, aumentando latência e exposição.",
+    "Ausência de NAT Gateway em qualquer VPC significa que workloads que precisam de saída para internet (atualizações de pacotes, chamadas a APIs externas) só funcionam com IP público direto na instância — impossível torná-las privadas sem mudança de arquitetura.",
+    "Mais de 100 subnets sem nomenclatura padronizada por AZ/tipo (public/private/database) dificultam automação via IaC e auditoria de exposição.",
+    "VPC Flow Logs identificados como desabilitados em todas as 4 VPCs — sem visibilidade de tráfego para investigação de incidentes ou análise de padrões."
+  ],
+  "guide_list": [
+    {"text": "Implementar NAT Gateway em pelo menos 2 AZs por VPC de produção; mover workloads para subnets privadas com rota default via NAT.", "severity": "critical"},
+    {"text": "Criar Gateway VPC Endpoints (gratuitos) para S3 e DynamoDB em todas as VPCs com tráfego para esses serviços.", "severity": "high"},
+    {"text": "Remover IPs públicos de todas as instâncias EC2 que não são bastion/proxy explícito; expor apenas via Application Load Balancer.", "severity": "high"},
+    {"text": "Desabilitar MapPublicIpOnLaunch em subnets nomeadas como 'pvt' ou 'db'; reservar a flag apenas para subnets explicitamente públicas.", "severity": "high"},
+    {"text": "Habilitar VPC Flow Logs em todas as VPCs com destino S3 (compressão) e retenção mínima de 30 dias.", "severity": "medium"},
+    {"text": "Padronizar nomenclatura de subnets: '<env>-<purpose>-<az>' (ex.: 'prod-private-1a', 'prod-public-1b', 'prod-db-1c').", "severity": "medium"},
+    {"text": "Avaliar consolidação via Transit Gateway para comunicação cross-environment auditada (substituindo eventual tráfego pela internet).", "severity": "medium"}
+  ],
+  "melhorias": [
+    "Redesenhar topologia em camadas: subnets públicas (apenas ALB e NAT Gateway), subnets privadas (workloads), subnets isoladas (bancos de dados sem rota para internet). Implementar em 2-3 AZs por VPC para alta disponibilidade.",
+    "Implementar VPC Endpoints (Gateway para S3/DynamoDB, Interface para serviços críticos como STS, KMS, Secrets Manager, ECR) — reduz custo de NAT data transfer e elimina dependência de internet para chamadas a serviços AWS.",
+    "Adotar arquitetura hub-and-spoke via Transit Gateway: conta de networking dedicada hospeda o TGW, conexões VPN/Direct Connect e regras de inspeção; contas de workload conectam-se ao TGW eliminando tráfego cross-VPC pela internet.",
+    "Migrar exposição pública das aplicações para Application Load Balancers em subnets públicas com TLS termination + WAF — workloads ECS/EC2 ficam exclusivamente em subnets privadas, sem IP público."
+  ]
+}
